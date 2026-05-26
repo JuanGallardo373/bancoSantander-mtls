@@ -165,7 +165,7 @@ func main() {
 	defer logFile.Close()
 
 	// Cargar certificados de cliente (CA)
-	caCert, err := os.ReadFile("./certs/ca-cert.pem")
+	caCert, err := os.ReadFile("../CABancoCentral/cacert.pem")
 	if err != nil {
 		log.Fatalf("Error cargando CA certificate: %v", err)
 	}
@@ -177,8 +177,8 @@ func main() {
 
 	// Cargar certificado y clave del servidor
 	serverCert, err := tls.LoadX509KeyPair(
-		"./certs/servidor-cert.pem",
-		"./certs/servidor-key.pem",
+		"../servidor-banco/banco-cert.pem",
+		"../servidor-banco/banco-key.pem",
 	)
 	if err != nil {
 		log.Fatalf("Error cargando certificado del servidor: %v", err)
@@ -206,7 +206,7 @@ func main() {
 	log.Println("📋 Esperando solicitudes con mTLS...")
 	log.Println("📊 Logs de anomalías guardados en: ../logs/anomalies.jsonl")
 
-	if err := server.ListenAndServeTLS("./certs/servidor-cert.pem", "./certs/servidor-key.pem"); err != nil {
+	if err := server.ListenAndServeTLS("../servidor-banco/banco-cert.pem", "../servidor-banco/banco-key.pem"); err != nil {
 		log.Fatalf("Error iniciando servidor: %v", err)
 	}
 }
