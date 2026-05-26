@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,21 +43,18 @@ type AnomalyLog struct {
 }
 
 var (
-	logFile      *os.File
-	jsonEncoder  *json.Encoder
-	transferIDCounter int
+	logFile            *os.File
+	jsonEncoder        *json.Encoder
+	transferIDCounter  int
 )
 
 func init() {
 	var err error
-	// Crear o abrir el archivo de logs JSON
-	logFile, err = os.OpenFile("../logs/anomalies.jsonl", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		log.Fatalf("Error al abrir archivo de logs: %v", err)
-	}
-
+	
 	// Crear directorio de logs si no existe
 	os.MkdirAll("../logs", 0755)
+	
+	// Crear o abrir el archivo de logs JSON
 	logFile, err = os.OpenFile("../logs/anomalies.jsonl", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatalf("Error al abrir archivo de logs: %v", err)
@@ -172,7 +170,7 @@ func main() {
 		log.Fatalf("Error cargando CA certificate: %v", err)
 	}
 
-	caCertPool := tls.NewCertPool()
+	caCertPool := x509.NewCertPool()
 	if !caCertPool.AppendCertsFromPEM(caCert) {
 		log.Fatal("Error agregando CA certificate al pool")
 	}
