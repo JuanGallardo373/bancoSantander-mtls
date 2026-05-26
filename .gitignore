@@ -1,0 +1,32 @@
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Certificates and keys (SECURITY)
+certs/*.pem
+!certs/README_CERTS.md
+!certs/generate-*.sh
+
+# Logs
+logs/*.log
+logs/*.jsonl
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+*.pyc
