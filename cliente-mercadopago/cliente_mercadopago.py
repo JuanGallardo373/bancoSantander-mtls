@@ -51,14 +51,14 @@ def create_transfer_request(amount, destination_account, destination_bank="Santa
         "currency": "USD"
     }
 
-def send_transfer(session, server_url, transfer_data, timeout=10):
+def send_transfer(session, server_url, transfer_data, ca_file, timeout=10):
     """Envía una solicitud de transferencia al servidor"""
     try:
         response = session.post(
             f"{server_url}/transfer",
             json=transfer_data,
-            timeout=timeout,
-            verify=False  # Ya manejamos la verificación con mTLS
+            verify=f"{ca_file}",
+            timeout=timeout
         )
         return response
     except requests.exceptions.SSLError as e:
@@ -83,9 +83,9 @@ def log_transaction(timestamp, status, transfer_id, amount, response_code):
 def main():
     # Configuración
     SERVER_URL = "https://localhost:8443"
-    CERT_FILE = "./certs/mercadopago-cert.pem"
-    KEY_FILE = "./certs/mercadopago-key.pem"
-    CA_FILE = "./certs/ca-cert.pem"
+    CERT_FILE = "./mpago-cert.pem"
+    KEY_FILE = "./mpago-key.pem"
+    CA_FILE = "../CABancoCentral/cacert.pem"
     
     print("=" * 60)
     print("🎯 Cliente Mercadopago - mTLS Bank Transfer")
@@ -101,7 +101,7 @@ def main():
         
         # Verificar conectividad con health check
         print("✓ Verificando conectividad con el servidor...")
-        health_response = session.get(f"{SERVER_URL}/health", verify=False, timeout=5)
+        health_response = session.get(f"{SERVER_URL}/health", verify=CA_FILE, timeout=5)
         if health_response.status_code == 200:
             print(f"✓ Servidor activo: {health_response.json()}")
         else:
@@ -133,7 +133,7 @@ def main():
             print(f"    Destinatario: {transfer_info['destination_account']}")
             
             # Enviar solicitud
-            response = send_transfer(session, SERVER_URL, transfer_data)
+            response = send_transfer(session, SERVER_URL, transfer_data, CA_FILE)
             
             if response:
                 status = "SUCCESS" if response.status_code == 200 else "FAILED"
