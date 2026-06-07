@@ -15,9 +15,8 @@ ENV/
 *.swo
 
 # Certificates and keys (SECURITY)
-certs/*.pem
+*/*.pem
 !certs/README_CERTS.md
-!certs/generate-*.sh
 
 # Logs
 logs/*.log
