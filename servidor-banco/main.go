@@ -52,10 +52,10 @@ func init() {
 	var err error
 	
 	// Crear directorio de logs si no existe
-	os.MkdirAll("../logs", 0755)
+	os.MkdirAll("/logs", 0755)
 	
 	// Crear o abrir el archivo de logs JSON
-	logFile, err = os.OpenFile("../logs/anomalies.jsonl", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err = os.OpenFile("/logs/anomalies.jsonl", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatalf("Error al abrir archivo de logs: %v", err)
 	}
@@ -204,7 +204,7 @@ func main() {
 
 	log.Println("🚀 Servidor Banco Santander iniciado en https://localhost:8443")
 	log.Println("📋 Esperando solicitudes con mTLS...")
-	log.Println("📊 Logs de anomalías guardados en: ../logs/anomalies.jsonl")
+	log.Println("📊 Logs de anomalías guardados en: /logs/anomalies.jsonl")
 
 	if err := server.ListenAndServeTLS("../servidor-banco/banco-cert.pem", "../servidor-banco/banco-key.pem"); err != nil {
 		log.Fatalf("Error iniciando servidor: %v", err)
