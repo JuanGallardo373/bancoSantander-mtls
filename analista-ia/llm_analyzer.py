@@ -6,8 +6,8 @@ from ollama import Client
 
 # 1. Configuración de rutas y cliente local
 # Asumimos que ejecutas este script parado dentro de la carpeta 'analista-ia/'
-LOG_BANCO_PATH = "../servidor-banco/logs/banco_access.log"
-LOG_ANOMALIAS_PATH = "logs/anomalies.log"
+LOG_BANCO_PATH = "../servidor-banco/logs/anomalies.log"
+LOG_ANALYSIS_PATH = "logs/analisys.log"
 MODEL_NAME = "analista-mtls"
 
 ollama_client = Client(host="http://localhost:11434")
