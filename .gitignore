@@ -15,18 +15,14 @@ ENV/
 *.swo
 
 # Certificates and keys (SECURITY)
-CABancoCentral/*.pem
 CABancoCentral/private/*.pem
-servidor-banco/*.pem
-cliente-mercadopago/*.pem
-cliente-bancobbva/*.pem
-cliente-atacante/*.pem
+*/*.pem
 !certs/README_CERTS.md
 !certs/generate-*.sh
 
 # Logs
-logs/*.log
-logs/*.jsonl
+*/logs/*.log
+*/logs/*.jsonl
 
 # Environment
 .env
