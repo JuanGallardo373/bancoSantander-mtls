@@ -47,6 +47,27 @@ pip install -r analista-ia/requirements.txt
 # Instalar y descargar modelo Ollama
 ollama pull llama2
 
+🚀 Cómo Usarlo:
+Terminal 1 - Ollama:
+
+bash
+ollama serve
+Terminal 2 - Servidor:
+
+bash
+cd servidor-banco
+go run main.go
+Terminal 3 - Analizador (CONTINUO):
+
+bash
+cd analista-ia
+python3 llm_analyzer.py --interval 10  # Verifica cada 10 seg
+Terminal 4 - Cliente/Atacante:
+
+bash
+cd cliente-atacante
+python3 atacante.py
+
 🛡️ Características de Seguridad
 ✅ mTLS Obligatorio
 
