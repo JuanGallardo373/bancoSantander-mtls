@@ -24,6 +24,7 @@ class MTLSAdapter(HTTPAdapter):
     def init_poolmanager(self, *args, **kwargs):
         ctx = create_urllib3_context()
         ctx.load_cert_chain(self.cert_file, self.key_file)
+        ctx.load_verify_locations(cafile=self.ca_file)
         kwargs['ssl_context'] = ctx
         return super().init_poolmanager(*args, **kwargs)
 
@@ -83,8 +84,8 @@ def log_transaction(timestamp, status, transfer_id, amount, response_code):
 def main():
     # Configuración
     SERVER_URL = "https://localhost:8443"
-    CERT_FILE = "./mpago-cert.pem"
-    KEY_FILE = "./mpago-key.pem"
+    CERT_FILE = "./certs/mpago-cert.pem"
+    KEY_FILE = "./certs/mpago-key.pem"
     CA_FILE = "../CABancoCentral/cacert.pem"
     
     print("=" * 60)

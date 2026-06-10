@@ -81,8 +81,8 @@ def log_transaction(timestamp, status, transfer_id, amount, response_code):
 def main():
     # Configuración
     SERVER_URL = "https://localhost:8443"
-    CERT_FILE = "./atacante-cert.pem"
-    KEY_FILE = "./atacante-key.pem"
+    CERT_FILE = "../cliente-mercadopago/certs/mpago-cert.pem"
+    KEY_FILE = "./certs/atacante-key.pem"
     CA_FILE = "../CABancoCentral/cacert.pem"
     
     print("=" * 60)

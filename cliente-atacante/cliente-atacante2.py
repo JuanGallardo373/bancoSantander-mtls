@@ -60,38 +60,20 @@ def create_malicious_transfer(amount, target_account):
 def attempt_transfer(session, server_url, transfer_data, attempt_num, timeout=10):
     """Intenta enviar una transferencia maliciosa"""
     try:
-        print(f"\n[Intento {attempt_num}] Enviando solicitud maliciosa...")
-        print(f"   → Certificado: {transfer_data['source_bank']}")
-        print(f"   → Monto: ${transfer_data['amount']:.2f}")
-        print(f"   → Cuenta destino: {transfer_data['destination_account']}")
-        
         response = session.post(
             f"{server_url}/transfer",
             json=transfer_data,
             timeout=timeout,
             verify=False  # No verificar certificado del servidor (ataque MITM)
         )
-        
         return response
     
     except requests.exceptions.SSLError as e:
         return None, str(e)
+    except requests.exceptions.ConnectionError as e:
+        return None, str(e)
     except requests.exceptions.RequestException as e:
         return None, str(e)
-
-def log_attack_attempt(timestamp, attempt_num, status, error_message, amount):
-    """Registra un intento de ataque"""
-    log_entry = {
-        "timestamp": timestamp,
-        "attacker": "malicious_actor",
-        "attempt_number": attempt_num,
-        "status": status,
-        "error": error_message,
-        "amount_attempted": amount,
-        "certificate_type": "self-signed"
-    }
-    print("\n📋 Log de intento de ataque:")
-    print(json.dumps(log_entry, indent=2, default=str))
 
 def print_header():
     """Imprime banner de atacante"""
@@ -114,8 +96,8 @@ def main():
     
     # Configuración del atacante
     SERVER_URL = "https://localhost:8443"
-    ATTACKER_CERT = "./certs/attacker-self-signed.pem"
-    ATTACKER_KEY = "./certs/attacker-self-signed.key"
+    ATTACKER_CERT = "./certs/atacante-cert.pem"
+    ATTACKER_KEY = "./certs/atacante-key.pem"
     
     print("🎯 Objetivo: Banco Santander")
     print(f"📍 Servidor: {SERVER_URL}")
@@ -127,7 +109,7 @@ def main():
     print("=" * 62)
     
     try:
-        # Intentar health check (sin mTLS)
+        # Intentar health check (sin mTLS obligatorio en /health)
         response = requests.get(f"{SERVER_URL}/health", verify=False, timeout=5)
         if response.status_code == 200:
             print("✓ Servidor disponible")
@@ -171,6 +153,8 @@ def main():
         ]
         
         successful_attacks = 0
+        rejected_attacks = 0
+        connection_errors = 0
         
         for i, scenario in enumerate(attack_scenarios, 1):
             timestamp = datetime.now().isoformat()
@@ -183,6 +167,8 @@ def main():
             
             print(f"\n{'─' * 62}")
             print(f"📤 Escenario {i}: {scenario['description']}")
+            print(f"   → Monto: ${scenario['amount']:,.2f}")
+            print(f"   → Cuenta destino: {scenario['target']}")
             print(f"{'─' * 62}")
             
             # Intentar enviar
@@ -191,20 +177,21 @@ def main():
             if isinstance(response, tuple):
                 response, error_msg = response
             
-            if response:
-                if response.status_code == 200:
-                    print(f"\n🚨 ¡¡ATAQUE EXITOSO!! (No debería suceder)")
-                    print(f"   Respuesta del servidor: {response.json()}")
-                    log_attack_attempt(timestamp, i, "SUCCESSFUL", "Certificado aceptado", scenario["amount"])
-                    successful_attacks += 1
-                else:
-                    print(f"\n❌ Ataque rechazado (código {response.status_code})")
-                    print(f"   Respuesta: {response.text}")
-                    log_attack_attempt(timestamp, i, "REJECTED", response.text, scenario["amount"])
-            else:
+            if response is None:
+                # Error de conexión/SSL
                 print(f"\n❌ Conexión rechazada (SSL/mTLS)")
-                print(f"   Error: {error_msg}")
-                log_attack_attempt(timestamp, i, "SSL_ERROR", error_msg, scenario["amount"])
+                print(f"   Error: {error_msg[:100]}...")
+                connection_errors += 1
+            elif response.status_code == 200:
+                # ¡Ataque exitoso! (NO debería suceder)
+                print(f"\n🚨 ¡¡ATAQUE EXITOSO!! (No debería suceder)")
+                print(f"   Respuesta del servidor: {response.json()}")
+                successful_attacks += 1
+            else:
+                # Ataque rechazado por aplicación
+                print(f"\n❌ Ataque rechazado (código {response.status_code})")
+                print(f"   Respuesta: {response.text[:100]}...")
+                rejected_attacks += 1
             
             # Esperar entre intentos
             if i < len(attack_scenarios):
@@ -217,28 +204,30 @@ def main():
         print("=" * 62)
         print(f"Total de intentos: {len(attack_scenarios)}")
         print(f"Ataques exitosos: {successful_attacks}")
-        print(f"Ataques bloqueados: {len(attack_scenarios) - successful_attacks}")
+        print(f"Ataques rechazados (HTTP): {rejected_attacks}")
+        print(f"Conexiones rechazadas (mTLS): {connection_errors}")
         
-        if successful_attacks == 0:
-            print("\n✅ RESULTADO ESPERADO: Todos los ataques fueron bloqueados")
-            print("   El servidor Santander rechazó correctamente el certificado autofirmado")
+        if successful_attacks == 0 and connection_errors > 0:
+            print("\n✅ RESULTADO ESPERADO: Todos los ataques fueron bloqueados en mTLS")
+            print("   El servidor Santander rechazó correctamente en handshake TLS 1.3")
             print("\n📋 Los intentos de ataque han sido registrados en:")
             print("   ../logs/anomalies.jsonl")
             print("\n🤖 Ejecuta el analizador LLM para ver el análisis de seguridad:")
-            print("   python3 analista-ia/llm_analyzer.py")
-        else:
+            print("   python3 ../analista-ia/llm_analyzer.py")
+        elif successful_attacks > 0:
             print(f"\n🚨 FALLO DE SEGURIDAD: {successful_attacks} ataques fueron exitosos")
             print("   ¡El servidor debe rechazar certificados autofirmados!")
+        else:
+            print("\n✅ Todos los ataques fueron detectados y bloqueados")
         
         print()
         print("=" * 62)
         
     except Exception as e:
         print(f"\n❌ Error durante el ataque: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
-
-
-

@@ -35,15 +35,12 @@ type TransferResponse struct {
 
 // AnomalyLog registra anomalías detectadas en el handshake mTLS
 type AnomalyLog struct {
-	Timestamp       time.Time `json:"timestamp"`
-	EventType       string    `json:"event_type"`
-	ClientIP        string    `json:"client_ip"`
-	ClientName      string    `json:"client_name"`
-	ErrorMessage    string    `json:"error_message"`
-	CertChain       []string  `json:"cert_chain,omitempty"`
-	IsExpired       bool      `json:"is_expired,omitempty"`
-	IsSelfSigned    bool      `json:"is_self_signed,omitempty"`
-	HandshakeError  bool      `json:"handshake_error,omitempty"`
+	Timestamp      time.Time `json:"timestamp"`
+	EventType      string    `json:"event_type"`
+	ClientIP       string    `json:"client_ip"`
+	ClientName     string    `json:"client_name"`
+	ErrorMessage   string    `json:"error_message"`
+	HandshakeError bool      `json:"handshake_error"`
 }
 
 var (
@@ -59,7 +56,7 @@ func init() {
 	os.MkdirAll("../logs", 0755)
 
 	// Crear o abrir el archivo de logs JSON
-	logFile, err = os.OpenFile("../logs/access_anomalies.jsonl", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err = os.OpenFile("../logs/anomalies.jsonl", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatalf("Error al abrir archivo de logs: %v", err)
 	}
@@ -67,10 +64,10 @@ func init() {
 
 func logAnomaly(anomaly AnomalyLog) {
 	anomaly.Timestamp = time.Now()
-	
+
 	logMutex.Lock()
 	defer logMutex.Unlock()
-	
+
 	encoder := json.NewEncoder(logFile)
 	if err := encoder.Encode(anomaly); err != nil {
 		log.Printf("Error escribiendo log de anomalía: %v", err)
@@ -87,66 +84,18 @@ func extractClientIP(remoteAddr string) string {
 	return remoteAddr
 }
 
-// getClientCertInfo extrae información del certificado del cliente
-func getClientCertInfo(r *http.Request) (string, bool, bool, []string) {
-	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
-		return "unknown", false, false, nil
-	}
-
-	cert := r.TLS.PeerCertificates[0]
-	clientName := cert.Subject.CommonName
-
-	// Verificar si el certificado está expirado
-	isExpired := time.Now().After(cert.NotAfter)
-
-	// Verificar si es autofirmado (Issuer == Subject)
-	isSelfSigned := cert.Issuer.String() == cert.Subject.String()
-
-	// Construir cadena de certificados
-	certChain := []string{
-		fmt.Sprintf("Subject: %s", cert.Subject.String()),
-		fmt.Sprintf("Issuer: %s", cert.Issuer.String()),
-		fmt.Sprintf("NotBefore: %s", cert.NotBefore.String()),
-		fmt.Sprintf("NotAfter: %s", cert.NotAfter.String()),
-		fmt.Sprintf("SerialNumber: %s", cert.SerialNumber.String()),
-	}
-
-	return clientName, isExpired, isSelfSigned, certChain
-}
-
 func transferHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Obtener información del certificado del cliente
-	clientName, isExpired, isSelfSigned, certChain := getClientCertInfo(r)
-
-	// Loguear anomalías si existen
-	if isExpired || isSelfSigned {
-		anomaly := AnomalyLog{
-			EventType:    "SUSPICIOUS_CERTIFICATE",
-			ClientIP:     extractClientIP(r.RemoteAddr),
-			ClientName:   clientName,
-			IsExpired:    isExpired,
-			IsSelfSigned: isSelfSigned,
-			CertChain:    certChain,
-		}
-
-		if isExpired {
-			anomaly.ErrorMessage = "Certificado cliente expirado detectado"
-		}
-		if isSelfSigned {
-			if anomaly.ErrorMessage != "" {
-				anomaly.ErrorMessage = anomaly.ErrorMessage + "; "
-			}
-			anomaly.ErrorMessage = anomaly.ErrorMessage + "Certificado autofirmado detectado"
-		}
-
-		logAnomaly(anomaly)
-		log.Printf("⚠️  ANOMALÍA: %s | Cliente: %s | IP: %s",
-			anomaly.ErrorMessage, clientName, anomaly.ClientIP)
+	// Obtener nombre del cliente del certificado validado
+	var clientName string
+	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
+		clientName = r.TLS.PeerCertificates[0].Subject.CommonName
+	} else {
+		clientName = "unknown"
 	}
 
 	// Parsear el body de la solicitud
@@ -206,7 +155,7 @@ func (l *TLSListenerWrapper) Accept() (net.Conn, error) {
 	return &TLSConnWrapper{Conn: conn}, nil
 }
 
-// TLSConnWrapper intercepta el handshake TLS
+// TLSConnWrapper intercepta el handshake TLS y registra errores
 type TLSConnWrapper struct {
 	net.Conn
 	wrapped bool
@@ -215,7 +164,7 @@ type TLSConnWrapper struct {
 func (c *TLSConnWrapper) Read(b []byte) (int, error) {
 	n, err := c.Conn.Read(b)
 
-	// Si hay error en el primer Read (handshake), registrarlo
+	// Si hay error en el handshake TLS, registrarlo
 	if err != nil && !c.wrapped && strings.Contains(err.Error(), "tls:") {
 		c.wrapped = true
 		clientIP := extractClientIP(c.Conn.RemoteAddr().String())
@@ -239,7 +188,7 @@ func main() {
 	defer logFile.Close()
 
 	// Cargar certificados de cliente (CA)
-	caCert, err := os.ReadFile("../CABancoCentral/cacert.pem")
+	caCert, err := os.ReadFile("./certs/ca-cert.pem")
 	if err != nil {
 		log.Fatalf("Error cargando CA certificate: %v", err)
 	}
@@ -251,26 +200,20 @@ func main() {
 
 	// Cargar certificado y clave del servidor
 	serverCert, err := tls.LoadX509KeyPair(
-		"./banco-cert.pem",
-		"./banco-key.pem",
+		"./certs/servidor-cert.pem",
+		"./certs/servidor-key.pem",
 	)
 	if err != nil {
 		log.Fatalf("Error cargando certificado del servidor: %v", err)
 	}
 
-	// Configurar TLS con mTLS
-	// ClientAuth: RequireAndVerifyClientCert requiere que el cliente presente un certificado válido
+	// Configurar TLS 1.3 con mTLS obligatorio
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientAuth:   tls.RequireAndVerifyClientCert, // Rechaza si certificado es inválido
 		ClientCAs:    caCertPool,
-		MinVersion:   tls.VersionTLS12,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-		},
+		MinVersion:   tls.VersionTLS13, // TLS 1.3 mínimo
+		// CipherSuites no es necesario en TLS 1.3 (Go usa automáticamente los 5 suites estándar)
 	}
 
 	// Registrar handlers
@@ -278,15 +221,15 @@ func main() {
 	http.HandleFunc("/health", healthHandler)
 
 	log.Println("🚀 Servidor Banco Santander iniciado en https://localhost:8443")
-	log.Println("📋 Esperando solicitudes con mTLS obligatorio...")
-	log.Println("📊 Logs de anomalías guardados en: ../logs/access_anomalies.jsonl")
+	log.Println("📋 Esperando solicitudes con mTLS obligatorio (TLS 1.3)...")
+	log.Println("📊 Logs de anomalías guardados en: ../logs/anomalies.jsonl")
 	log.Println()
 	log.Println("🔐 Configuración mTLS:")
-	log.Println("   ✓ Requiere certificado cliente")
+	log.Println("   ✓ TLS 1.3 mínimo (máxima seguridad)")
+	log.Println("   ✓ Requiere certificado cliente válido")
 	log.Println("   ✓ Verifica firma de CA")
-	log.Println("   ✓ Rechaza certificados autofirmados")
-	log.Println("   ✓ Rechaza certificados expirados")
-	log.Println("   ✓ Registra todos los errores en anomalies.jsonl")
+	log.Println("   ✓ Rechaza automáticamente certificados inválidos en handshake")
+	log.Println("   ✓ Registra todos los intentos fallidos en anomalies.jsonl")
 	log.Println()
 
 	// Crear listener TCP
@@ -298,8 +241,8 @@ func main() {
 
 	// Envolver con TLS
 	tlsListener := tls.NewListener(tcpListener, tlsConfig)
-	
-	// Envolver con nuestro wrapper para interceptar errores
+
+	// Envolver con nuestro wrapper para interceptar errores de handshake
 	wrappedListener := &TLSListenerWrapper{Listener: tlsListener}
 	defer wrappedListener.Close()
 
@@ -315,5 +258,3 @@ func main() {
 		log.Fatalf("Error en servidor: %v", err)
 	}
 }
-
-
