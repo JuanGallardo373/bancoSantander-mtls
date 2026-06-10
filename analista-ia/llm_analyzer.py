@@ -2,6 +2,7 @@
 """
 Analizador de Anomalías mTLS usando LLM local (Ollama)
 Detecta patrones de ataque y anomalías en los logs de handshakes mTLS
+Análisis CONTINUO en tiempo real
 """
 
 import json
@@ -10,6 +11,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 import time
+import threading
 
 class MTLSAnomalyAnalyzer:
     """Analizador de anomalías mTLS con LLM local"""
@@ -26,6 +28,8 @@ class MTLSAnomalyAnalyzer:
         self.model = model
         self.log_file = "../logs/anomalies.jsonl"
         self.analysis_file = "../logs/analysis.jsonl"
+        self.last_processed = 0  # Último índice procesado
+        self.anomalies_buffer = []  # Buffer para análisis
     
     def check_ollama_availability(self):
         """Verifica si Ollama está disponible"""
@@ -35,38 +39,41 @@ class MTLSAnomalyAnalyzer:
         except requests.RequestException:
             return False
     
-    def read_recent_logs(self, minutes=60):
-        """Lee logs recientes desde el archivo JSONL"""
-        anomalies = []
+    def read_new_logs(self):
+        """Lee solo los logs nuevos desde la última lectura"""
+        new_anomalies = []
         
         if not Path(self.log_file).exists():
-            print(f"⚠️  Archivo de logs no encontrado: {self.log_file}")
-            return anomalies
-        
-        cutoff_time = datetime.now() - timedelta(minutes=minutes)
+            return new_anomalies
         
         try:
             with open(self.log_file, 'r') as f:
-                for line in f:
-                    if line.strip():
+                lines = f.readlines()
+                
+                # Procesar solo líneas nuevas
+                for i in range(self.last_processed, len(lines)):
+                    line = lines[i].strip()
+                    if line:
                         try:
                             log_entry = json.loads(line)
-                            timestamp = datetime.fromisoformat(log_entry.get('timestamp', ''))
-                            if timestamp > cutoff_time:
-                                anomalies.append(log_entry)
+                            new_anomalies.append(log_entry)
                         except json.JSONDecodeError:
                             continue
+                
+                # Actualizar índice
+                self.last_processed = len(lines)
+        
         except Exception as e:
             print(f"❌ Error leyendo logs: {e}")
         
-        return anomalies
+        return new_anomalies
     
     def format_anomalies_for_analysis(self, anomalies):
         """Formatea las anomalías para análisis por LLM"""
         if not anomalies:
-            return "Sin anomalías detectadas en los logs recientes."
+            return "Sin anomalías nuevas detectadas."
         
-        formatted = "ANOMALÍAS DETECTADAS EN LOGS mTLS:\n\n"
+        formatted = "ANOMALÍAS DETECTADAS EN LOGS mTLS (ANÁLISIS CONTINUO):\n\n"
         for i, anomaly in enumerate(anomalies, 1):
             formatted += f"{i}. Timestamp: {anomaly.get('timestamp')}\n"
             formatted += f"   Cliente: {anomaly.get('client_name', 'Desconocido')}\n"
@@ -74,25 +81,37 @@ class MTLSAnomalyAnalyzer:
             formatted += f"   Tipo: {anomaly.get('event_type', 'N/A')}\n"
             formatted += f"   Certificado Expirado: {anomaly.get('is_expired', False)}\n"
             formatted += f"   Autofirmado: {anomaly.get('is_self_signed', False)}\n"
-            formatted += f"   Mensaje: {anomaly.get('error_message', 'N/A')}\n\n"
+            formatted += f"   Error Handshake: {anomaly.get('handshake_error', False)}\n"
+            formatted += f"   Mensaje: {anomaly.get('error_message', 'N/A')}\n"
+            
+            if anomaly.get('cert_chain'):
+                formatted += f"   Cadena de certificados:\n"
+                for cert_info in anomaly.get('cert_chain', []):
+                    formatted += f"      - {cert_info}\n"
+            
+            formatted += "\n"
         
         return formatted
     
     def analyze_with_llm(self, anomalies_text):
         """Analiza anomalías usando LLM local (Ollama)"""
-        prompt = f"""Analiza las siguientes anomalías de seguridad mTLS en un servidor bancario. 
-Identifica patrones de ataque, valida si son intentos maliciosos y proporciona recomendaciones de seguridad.
+        prompt = f"""Eres un experto en seguridad mTLS en sistemas bancarios. 
+Analiza las siguientes anomalías de seguridad detectadas en el servidor Santander.
+Identifica patrones de ataque, valida si son intentos maliciosos y proporciona recomendaciones inmediatas.
 
 {anomalies_text}
 
-Por favor proporciona:
-1. Clasificación de riesgo (CRÍTICO, ALTO, MEDIO, BAJO)
-2. Análisis de cada anomalía
-3. Patrones detectados
-4. Recomendaciones de acción inmediata
-5. Si se debe notificar al administrador
+Por favor proporciona un análisis estructurado con:
+1. Clasificación de riesgo para CADA ANOMALÍA (CRÍTICO, ALTO, MEDIO, BAJO)
+2. Interpretación de cada evento
+3. PATRONES DETECTADOS (¿hay intentos coordinados? ¿múltiples IPs? ¿misma hora?)
+4. TIPO DE ATAQUE IDENTIFICADO (MITM, Suplantación, Fuerza bruta, Certificado robado, etc.)
+5. RECOMENDACIONES DE ACCIÓN INMEDIATA
+6. ¿DEBE BLOQUEARSE LA IP? SI/NO y por qué
+7. NOTIFICAR AL ADMINISTRADOR: SI/NO
 
-Sé conciso y enfocado en la seguridad."""
+Sé preciso, técnico y enfocado en la seguridad del banco. 
+Asume que estamos bajo ataque potencial y reacciona en consecuencia."""
         
         try:
             response = requests.post(
@@ -101,9 +120,9 @@ Sé conciso y enfocado en la seguridad."""
                     "model": self.model,
                     "prompt": prompt,
                     "stream": False,
-                    "temperature": 0.3
+                    "temperature": 0.2  # Más bajo para respuestas más deterministas
                 },
-                timeout=60
+                timeout=120  # Timeout más largo para análisis complejos
             )
             
             if response.status_code == 200:
@@ -120,7 +139,8 @@ Sé conciso y enfocado en la seguridad."""
             "timestamp": datetime.now().isoformat(),
             "anomalies_count": len(anomalies),
             "anomalies": anomalies,
-            "llm_analysis": analysis
+            "llm_analysis": analysis,
+            "analysis_mode": "continuous"
         }
         
         # Crear directorio si no existe
@@ -129,7 +149,6 @@ Sé conciso y enfocado en la seguridad."""
         try:
             with open(self.analysis_file, 'a') as f:
                 f.write(json.dumps(analysis_entry) + '\n')
-            print(f"✓ Análisis guardado en: {self.analysis_file}")
         except Exception as e:
             print(f"❌ Error guardando análisis: {e}")
     
@@ -147,7 +166,11 @@ Sé conciso y enfocado en la seguridad."""
             "certificado expirado",
             "intentos fallidos",
             "múltiples intentos",
-            "patrón de ataque"
+            "patrón de ataque",
+            "crítico",
+            "bloquear",
+            "mitm",
+            "suplantación"
         ]
         
         analysis_lower = analysis.lower()
@@ -158,44 +181,62 @@ Sé conciso y enfocado en la seguridad."""
         # Verificar palabras clave críticas
         has_critical = any(keyword in analysis_lower for keyword in critical_keywords)
         
-        # Lógica de alertas
-        if anomaly_count >= 3 and has_critical:
+        # Lógica de alertas mejorada
+        if anomaly_count >= 2 and has_critical:
             alert["should_alert"] = True
             alert["severity"] = "CRÍTICO"
             alert["reason"] = f"Múltiples anomalías críticas detectadas ({anomaly_count})"
-        elif "crítico" in analysis_lower:
+        elif "crítico" in analysis_lower or "bloquear" in analysis_lower:
             alert["should_alert"] = True
             alert["severity"] = "CRÍTICO"
-            alert["reason"] = "LLM detectó riesgo crítico"
-        elif anomaly_count >= 2 and has_critical:
+            alert["reason"] = "LLM detectó riesgo crítico que requiere acción inmediata"
+        elif anomaly_count >= 1 and has_critical:
             alert["should_alert"] = True
             alert["severity"] = "ALTO"
-            alert["reason"] = f"Múltiples anomalías de seguridad ({anomaly_count})"
+            alert["reason"] = f"Anomalía de seguridad crítica detectada"
         
         return alert
     
-    def send_admin_notification(self, alert, analysis):
+    def send_admin_notification(self, alert, analysis, anomalies):
         """Envía notificación al administrador"""
         if not alert["should_alert"]:
             return
         
         notification = f"""
 ╔═══════════════════════════════════════════════════════════════╗
-║         ⚠️  ALERTA DE SEGURIDAD mTLS - BANCO SANTANDER       ║
+║      ⚠️  ALERTA DE SEGURIDAD mTLS - BANCO SANTANDER          ║
+║              (ANÁLISIS CONTINUO EN TIEMPO REAL)              ║
 ╚═══════════════════════════════════════════════════════════════╝
 
 SEVERIDAD: {alert['severity']}
 MOTIVO: {alert['reason']}
 TIMESTAMP: {datetime.now().isoformat()}
+ANOMALÍAS DETECTADAS: {len(anomalies)}
 
+═══════════════════════════════════════════════════════════════
+DETALLES DE ANOMALÍAS:
+═══════════════════════════════════════════════════════════════
+"""
+        
+        for i, anomaly in enumerate(anomalies, 1):
+            notification += f"\n[{i}] IP: {anomaly.get('client_ip')} | Cliente: {anomaly.get('client_name')}\n"
+            notification += f"    Evento: {anomaly.get('event_type')}\n"
+            notification += f"    Mensaje: {anomaly.get('error_message')}\n"
+        
+        notification += f"""
+═══════════════════════════════════════════════════════════════
 ANÁLISIS DEL LLM:
+═══════════════════════════════════════════════════════════════
 {analysis}
 
+═══════════════════════════════════════════════════════════════
 ACCIÓN REQUERIDA:
-1. Revisar inmediatamente los logs en: {self.log_file}
-2. Verificar acceso de cuentas relacionadas
+═══════════════════════════════════════════════════════════════
+1. Revisar inmediatamente los logs: ../logs/anomalies.jsonl
+2. Implementar recomendaciones del LLM
 3. Considerar bloqueo de IPs sospechosas
 4. Activar protocolos de incidente de seguridad
+5. Contactar al equipo de ciberseguridad
 
 ═══════════════════════════════════════════════════════════════
 """
@@ -209,59 +250,109 @@ ACCIÓN REQUERIDA:
         except Exception as e:
             print(f"❌ Error guardando alerta: {e}")
     
-    def run_analysis(self, minutes=60):
-        """Ejecuta análisis completo"""
+    def print_status(self, anomalies_count):
+        """Imprime estado del monitor"""
+        status = f"[{datetime.now().strftime('%H:%M:%S')}] "
+        if anomalies_count > 0:
+            status += f"🔴 {anomalies_count} ANOMALÍA(S) NUEVA(S) DETECTADA(S)"
+        else:
+            status += "🟢 Sin anomalías nuevas"
+        
+        print(status)
+    
+    def run_continuous_analysis(self, check_interval=10):
+        """Ejecuta análisis continuo en tiempo real"""
         print("\n" + "="*70)
-        print("🔍 ANALIZADOR DE ANOMALÍAS mTLS CON LLM")
+        print("🔍 ANALIZADOR DE ANOMALÍAS mTLS - MODO CONTINUO")
         print("="*70)
         
         # Verificar disponibilidad de Ollama
         print(f"\n🔌 Verificando conexión a Ollama ({self.ollama_url})...")
         if not self.check_ollama_availability():
             print(f"❌ Ollama no disponible en {self.ollama_url}")
-            print("   Asegúrate de que Ollama está ejecutándose:")
-            print("   $ ollama serve")
-            print("   $ ollama pull llama2  # Si aún no tienes el modelo")
+            print("   Soluciones:")
+            print("   1. Instalar Ollama: https://ollama.ai")
+            print("   2. En otra terminal ejecutar: ollama serve")
+            print("   3. Descargar modelo: ollama pull llama2")
+            print("   4. Reintentar este script")
             return
         
         print(f"✓ Ollama conectado. Modelo: {self.model}")
+        print(f"✓ Intervalo de verificación: {check_interval} segundos")
+        print(f"✓ Leyendo logs desde: {self.log_file}")
+        print()
         
-        # Leer logs recientes
-        print(f"\n📂 Leyendo logs recientes ({minutes} minutos)...")
-        anomalies = self.read_recent_logs(minutes=minutes)
-        print(f"✓ Se encontraron {len(anomalies)} anomalías")
+        print("=" * 70)
+        print("⏳ Iniciando monitoreo continuo...")
+        print("   Presiona Ctrl+C para detener")
+        print("=" * 70)
+        print()
         
-        # Formatear para análisis
-        anomalies_text = self.format_anomalies_for_analysis(anomalies)
+        analysis_count = 0
+        try:
+            while True:
+                # Verificar nuevas anomalías
+                new_anomalies = self.read_new_logs()
+                self.print_status(len(new_anomalies))
+                
+                if new_anomalies:
+                    analysis_count += 1
+                    
+                    print(f"\n{'─'*70}")
+                    print(f"📊 ANÁLISIS #{analysis_count} - {len(new_anomalies)} anomalía(s)")
+                    print(f"{'─'*70}")
+                    
+                    # Formatear anomalías
+                    anomalies_text = self.format_anomalies_for_analysis(new_anomalies)
+                    
+                    # Mostrar anomalías detectadas
+                    print("\n📋 Anomalías detectadas:")
+                    for i, anom in enumerate(new_anomalies, 1):
+                        print(f"   [{i}] {anom.get('event_type')} - IP: {anom.get('client_ip')} - {anom.get('error_message', 'N/A')[:50]}")
+                    
+                    # Análisis con LLM
+                    print(f"\n🤖 Analizando con LLM ({self.model})...")
+                    analysis = self.analyze_with_llm(anomalies_text)
+                    
+                    print("\n" + "─"*70)
+                    print("ANÁLISIS DEL LLM:")
+                    print("─"*70)
+                    print(analysis)
+                    
+                    # Guardar análisis
+                    self.save_analysis(new_anomalies, analysis)
+                    
+                    # Verificar condiciones de alerta
+                    alert = self.check_alert_conditions(new_anomalies, analysis)
+                    
+                    # Enviar notificación si es necesario
+                    if alert["should_alert"]:
+                        print()
+                        self.send_admin_notification(alert, analysis, new_anomalies)
+                    else:
+                        print("\n✓ Análisis completado. No se requiere alerta inmediata.")
+                    
+                    print(f"\n{'─'*70}\n")
+                
+                # Esperar antes de la siguiente verificación
+                time.sleep(check_interval)
         
-        # Análisis con LLM
-        print(f"\n🤖 Analizando con LLM ({self.model})...")
-        analysis = self.analyze_with_llm(anomalies_text)
+        except KeyboardInterrupt:
+            print("\n\n" + "="*70)
+            print(f"⏹️  Monitoreo detenido por el usuario")
+            print(f"   Total de análisis realizados: {analysis_count}")
+            print("="*70)
+            sys.exit(0)
         
-        print("\n" + "─"*70)
-        print("ANÁLISIS DEL LLM:")
-        print("─"*70)
-        print(analysis)
-        
-        # Guardar análisis
-        self.save_analysis(anomalies, analysis)
-        
-        # Verificar condiciones de alerta
-        alert = self.check_alert_conditions(anomalies, analysis)
-        
-        # Enviar notificación si es necesario
-        if alert["should_alert"]:
-            self.send_admin_notification(alert, analysis)
-        else:
-            print("\n✓ No se requiere alerta al administrador")
-        
-        print("\n" + "="*70 + "\n")
+        except Exception as e:
+            print(f"\n❌ Error en monitoreo: {e}")
+            sys.exit(1)
 
 def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description="Analizador de anomalías mTLS con LLM local"
+        description="Analizador de anomalías mTLS con LLM local - Modo Continuo"
     )
     parser.add_argument(
         "--ollama-url",
@@ -274,15 +365,10 @@ def main():
         help="Modelo LLM a usar (default: llama3)"
     )
     parser.add_argument(
-        "--minutes",
+        "--interval",
         type=int,
-        default=60,
-        help="Minutos atrás para analizar logs (default: 60)"
-    )
-    parser.add_argument(
-        "--continuous",
-        action="store_true",
-        help="Ejecutar análisis continuamente cada 5 minutos"
+        default=10,
+        help="Intervalo de verificación en segundos (default: 10)"
     )
     
     args = parser.parse_args()
@@ -292,17 +378,9 @@ def main():
         model=args.model
     )
     
-    try:
-        if args.continuous:
-            print("🔄 Modo continuo activado. Presiona Ctrl+C para detener.")
-            while True:
-                analyzer.run_analysis(minutes=args.minutes)
-                time.sleep(300)  # 5 minutos
-        else:
-            analyzer.run_analysis(minutes=args.minutes)
-    except KeyboardInterrupt:
-        print("\n\n⏹️  Análisis detenido por el usuario")
-        sys.exit(0)
+    analyzer.run_continuous_analysis(check_interval=args.interval)
 
 if __name__ == "__main__":
     main()
+
+
