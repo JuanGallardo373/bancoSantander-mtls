@@ -4,6 +4,7 @@ Cliente de Mercadopago para comunicaciones mTLS con Banco Santander
 Simula solicitudes de transferencia bancaria
 """
 
+import ssl
 import requests
 import json
 import time
@@ -23,15 +24,20 @@ class MTLSAdapter(HTTPAdapter):
     
     def init_poolmanager(self, *args, **kwargs):
         ctx = create_urllib3_context()
-        ctx.load_cert_chain(self.cert_file, self.key_file)
         ctx.load_verify_locations(cafile=self.ca_file)
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.check_hostname = True
+        ctx.load_cert_chain(self.cert_file, self.key_file)
         kwargs['ssl_context'] = ctx
         return super().init_poolmanager(*args, **kwargs)
 
 def create_mtls_session(cert_path, key_path, ca_path):
     """Crea una sesión con mTLS configurado"""
     session = requests.Session()
-    adapter = MTLSAdapter(
+    # 1. Le decimos a la capa alta (requests) que use nuestra CA para validar
+    session.verify = ca_path 
+    # 2. Le decimos a la capa baja (urllib3) que inyecte las identidades
+    adapter = MTLSAdapter( 
         cert_file=cert_path,
         key_file=key_path,
         ca_file=ca_path,
@@ -52,13 +58,12 @@ def create_transfer_request(amount, destination_account, destination_bank="Santa
         "currency": "USD"
     }
 
-def send_transfer(session, server_url, transfer_data, ca_file, timeout=10):
+def send_transfer(session, server_url, transfer_data, timeout=10):
     """Envía una solicitud de transferencia al servidor"""
     try:
         response = session.post(
             f"{server_url}/transfer",
             json=transfer_data,
-            verify=f"{ca_file}",
             timeout=timeout
         )
         return response
@@ -102,7 +107,7 @@ def main():
         
         # Verificar conectividad con health check
         print("✓ Verificando conectividad con el servidor...")
-        health_response = session.get(f"{SERVER_URL}/health", verify=CA_FILE, timeout=5)
+        health_response = session.get(f"{SERVER_URL}/health", timeout=5)
         if health_response.status_code == 200:
             print(f"✓ Servidor activo: {health_response.json()}")
         else:
@@ -134,7 +139,7 @@ def main():
             print(f"    Destinatario: {transfer_info['destination_account']}")
             
             # Enviar solicitud
-            response = send_transfer(session, SERVER_URL, transfer_data, CA_FILE)
+            response = send_transfer(session, SERVER_URL, transfer_data)
             
             if response:
                 status = "SUCCESS" if response.status_code == 200 else "FAILED"
