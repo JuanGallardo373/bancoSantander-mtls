@@ -188,7 +188,7 @@ func main() {
 	defer logFile.Close()
 
 	// Cargar certificados de cliente (CA)
-	caCert, err := os.ReadFile("./certs/ca-cert.pem")
+	caCert, err := os.ReadFile("../CABancoCentral/cacert.pem")
 	if err != nil {
 		log.Fatalf("Error cargando CA certificate: %v", err)
 	}
@@ -200,8 +200,8 @@ func main() {
 
 	// Cargar certificado y clave del servidor
 	serverCert, err := tls.LoadX509KeyPair(
-		"./certs/servidor-cert.pem",
-		"./certs/servidor-key.pem",
+		"./certs/santander-cert.pem",
+		"./certs/santender-key.pem",
 	)
 	if err != nil {
 		log.Fatalf("Error cargando certificado del servidor: %v", err)
