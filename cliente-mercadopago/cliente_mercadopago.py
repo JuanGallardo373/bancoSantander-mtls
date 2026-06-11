@@ -24,6 +24,7 @@ class MTLSAdapter(HTTPAdapter):
     
     def init_poolmanager(self, *args, **kwargs):
         ctx = create_urllib3_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_3
         ctx.load_verify_locations(cafile=self.ca_file)
         ctx.verify_mode = ssl.CERT_REQUIRED
         ctx.check_hostname = True
