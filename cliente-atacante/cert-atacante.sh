@@ -10,4 +10,3 @@ openssl req -new -x509 -key certs/atacante-key.pem -out certs/atacante-cert.pem 
 echo ""
 echo "Certificado autofirmado creado:"
 openssl x509 -in certs/atacante-cert.pem -text -noout | grep -E "Subject:|Issuer:|Not Before|Not After|Public-Key"
-
