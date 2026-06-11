@@ -141,47 +141,44 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// TLSListenerWrapper intercepta errores de handshake TLS
-type TLSListenerWrapper struct {
+// CustomTLSListener intercepta el handshake TLS y captura errores de certificado
+type CustomTLSListener struct {
 	net.Listener
+	tlsConfig *tls.Config
 }
 
-func (l *TLSListenerWrapper) Accept() (net.Conn, error) {
+func (l *CustomTLSListener) Accept() (net.Conn, error) {
 	conn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	return &TLSConnWrapper{Conn: conn}, nil
-}
-
-// TLSConnWrapper intercepta el handshake TLS y registra errores
-type TLSConnWrapper struct {
-	net.Conn
-	wrapped bool
-}
-
-func (c *TLSConnWrapper) Read(b []byte) (int, error) {
-	n, err := c.Conn.Read(b)
-
-	// Si hay error en el handshake TLS, registrarlo
-	if err != nil && !c.wrapped && strings.Contains(err.Error(), "tls:") {
-		c.wrapped = true
-		clientIP := extractClientIP(c.Conn.RemoteAddr().String())
-
+	// Realizar handshake TLS manualmente para capturar errores
+	tlsConn := tls.Server(conn, l.tlsConfig)
+	
+	// Forzar el handshake y capturar errores
+	if err := tlsConn.Handshake(); err != nil {
+		clientIP := extractClientIP(conn.RemoteAddr().String())
+		// Intentar extraer información del certificado del error
+		var clientName string
 		anomaly := AnomalyLog{
-			EventType:      "MTLS_HANDSHAKE_ERROR",
+			EventType:      "MTLS_HANDSHAKE_FAILED",
 			ClientIP:       clientIP,
-			ClientName:     "unknown",
+			ClientName:     clientName,
 			ErrorMessage:   err.Error(),
 			HandshakeError: true,
 		}
 
 		logAnomaly(anomaly)
-		log.Printf("🔐 ERROR HANDSHAKE mTLS: %s | IP: %s", err.Error(), clientIP)
+		log.Printf("🔐 ❌ ANOMALÍA DETECTADA - HANDSHAKE MTLS FALLIDO")
+		log.Printf("   IP del cliente: %s", clientIP)
+		log.Printf("   Razón: %s", err.Error())
+		
+		conn.Close()
+		return nil, err
 	}
 
-	return n, err
+	return tlsConn, nil
 }
 
 func main() {
@@ -210,10 +207,9 @@ func main() {
 	// Configurar TLS 1.3 con mTLS obligatorio
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
-		ClientAuth:   tls.RequireAndVerifyClientCert, // Rechaza si certificado es inválido
+		ClientAuth:   tls.RequireAndVerifyClientCert, // Requiere y verifica certificado del cliente
 		ClientCAs:    caCertPool,
-		MinVersion:   tls.VersionTLS13, // TLS 1.3 mínimo
-		// CipherSuites no es necesario en TLS 1.3 (Go usa automáticamente los 5 suites estándar)
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	// Registrar handlers
@@ -239,22 +235,22 @@ func main() {
 	}
 	defer tcpListener.Close()
 
-	// Envolver con TLS
-	tlsListener := tls.NewListener(tcpListener, tlsConfig)
+	// Crear listener TLS personalizado que captura handshake failures
+	customTLSListener := &CustomTLSListener{
+		Listener:  tcpListener,
+		tlsConfig: tlsConfig,
+	}
+	defer customTLSListener.Close()
 
-	// Envolver con nuestro wrapper para interceptar errores de handshake
-	wrappedListener := &TLSListenerWrapper{Listener: tlsListener}
-	defer wrappedListener.Close()
-
-	// Crear servidor
+	// Crear servidor HTTP que usará el listener personalizado
 	server := &http.Server{
 		Addr:      ":8443",
 		TLSConfig: tlsConfig,
 		Handler:   http.DefaultServeMux,
 	}
 
-	// Servir con listener personalizado
-	if err := server.Serve(wrappedListener); err != nil {
+	// Servir con listener personalizado (SIN usar ListenAndServeTLS)
+	if err := server.Serve(customTLSListener); err != nil {
 		log.Fatalf("Error en servidor: %v", err)
 	}
 }
