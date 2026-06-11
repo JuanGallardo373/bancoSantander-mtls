@@ -141,7 +141,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// CustomTLSListener intercepta el handshake TLS y captura errores de certificado
+// CustomTLSListener envuelve el listener TCP crudo
 type CustomTLSListener struct {
 	net.Listener
 	tlsConfig *tls.Config
@@ -153,32 +153,51 @@ func (l *CustomTLSListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	// Realizar handshake TLS manualmente para capturar errores
+	// 1. Envolvemos la conexión TCP en una conexión TLS, pero NO hacemos el handshake todavía.
+	// Esto es rapidísimo y no bloquea el hilo principal.
 	tlsConn := tls.Server(conn, l.tlsConfig)
-	
-	// Forzar el handshake y capturar errores
-	if err := tlsConn.Handshake(); err != nil {
-		clientIP := extractClientIP(conn.RemoteAddr().String())
-		// Intentar extraer información del certificado del error
-		var clientName string
-		anomaly := AnomalyLog{
-			EventType:      "MTLS_HANDSHAKE_FAILED",
-			ClientIP:       clientIP,
-			ClientName:     clientName,
-			ErrorMessage:   err.Error(),
-			HandshakeError: true,
-		}
 
-		logAnomaly(anomaly)
-		log.Printf("🔐 ❌ ANOMALÍA DETECTADA - HANDSHAKE MTLS FALLIDO")
-		log.Printf("   IP del cliente: %s", clientIP)
-		log.Printf("   Razón: %s", err.Error())
+	// 2. Entregamos nuestro Wrapper al servidor HTTP.
+	// El servidor HTTP mandará esto a una Goroutine de fondo.
+	return &TLSHandshakeInterceptor{Conn: tlsConn}, nil
+}
+
+// TLSHandshakeInterceptor intercepta el momento exacto en que Go intenta comunicarse
+type TLSHandshakeInterceptor struct {
+	*tls.Conn
+	handshakeDone bool
+}
+
+// Sobreescribimos el método Read para capturar el error TLS real
+func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
+	// Forzamos el Handshake manualmente en la primera lectura (que ya ocurre en el fondo)
+	if !c.handshakeDone {
+		err := c.Conn.Handshake()
+		c.handshakeDone = true
 		
-		conn.Close()
-		return nil, err
+		if err != nil {
+			// ¡AQUÍ CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA!
+			clientIP := extractClientIP(c.Conn.RemoteAddr().String())
+
+			anomaly := AnomalyLog{
+				EventType:      "MTLS_HANDSHAKE_FAILED",
+				ClientIP:       clientIP,
+				ClientName:     "unknown", // No sabemos quién es porque falló
+				ErrorMessage:   err.Error(),
+				HandshakeError: true,
+			}
+
+			logAnomaly(anomaly)
+			log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s", err.Error(), clientIP)
+
+			// Retornamos el error al servidor HTTP para que cierre esta Goroutine,
+			// pero el servidor principal en :8443 sigue intacto.
+			return 0, err
+		}
 	}
 
-	return tlsConn, nil
+	// Si el handshake fue exitoso (Mercado Pago / BBVA), lee los datos del body JSON normal
+	return c.Conn.Read(b)
 }
 
 func main() {
