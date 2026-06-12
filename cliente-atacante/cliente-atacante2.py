@@ -64,7 +64,6 @@ def attempt_transfer(session, server_url, transfer_data, attempt_num, timeout=10
             f"{server_url}/transfer",
             json=transfer_data,
             timeout=timeout,
-            verify=False  # No verificar certificado del servidor (ataque MITM)
         )
         return response
     
@@ -130,12 +129,7 @@ def main():
     print("🚨 INICIANDO ATAQUES CON CERTIFICADO AUTOFIRMADO...")
     print("=" * 62)
     
-    try:
-        # Crear sesión con certificado autofirmado
-        print("\n🔐 Configurando cliente con certificado autofirmado...")
-        session = create_attacker_session(ATTACKER_CERT, ATTACKER_KEY)
-        print("✓ Sesión configurada (certificado NO verificado por CA)")
-        
+    try:        
         # Intentos de transferencia maliciosa
         attack_scenarios = [
             {
