@@ -20,6 +20,10 @@ CABancoCentral/private/*.pem
 CABancoCentral/*.pem
 !certs/README_CERTS.md
 
+#Certificates database and serial number
+CABancoCentral/index.txt*
+CABancoCentral/serial*
+
 # Logs
 logs/*.log
 logs/*.jsonl
