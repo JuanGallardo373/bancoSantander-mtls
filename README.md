@@ -30,41 +30,36 @@ Este proyecto implementa:
 ## 🚀 Requisitos Previos
 
 ### Sistema
-- **Go** 1.19+ 
+- **Go** 1.19+
+sudo apt install golang-go
 - **Python** 3.8+
+sudo apt install -y python3 python3-pip python3-dev python3-venv libssl-dev libffi-dev && \
+pip3 install --upgrade pip
 - **Ollama** (para análisis con LLM)
+curl -fsSL https://ollama.com/install.sh | sh
 
 ### Instalación
 # Clonar repositorio
 git clone https://github.com/JuanGallardo373/bancoSantander-mtls.git
 cd bancoSantander-mtls
 
-# Instalar dependencias Python (en cada directorio cliente y analista)
-pip install -r cliente-mercadopago/requirements.txt
-pip install -r cliente-bancobbva/requirements.txt
-pip install -r analista-ia/requirements.txt
-
 # Instalar y descargar modelo Ollama
-ollama pull llama2
+ollama pull llama2 / ollama pull llama3
 
 🚀 Cómo Usarlo:
 Terminal 1 - Ollama:
-
-bash
 ollama serve
-Terminal 2 - Servidor:
 
-bash
+Terminal 2 - Servidor:
 cd servidor-banco
 go run main.go
-Terminal 3 - Analizador (CONTINUO):
 
-bash
+Terminal 3 - Analizador (CONTINUO):
 cd analista-ia
 python3 llm_analyzer.py --interval 10  # Verifica cada 10 seg
-Terminal 4 - Cliente/Atacante:
+python3 llm_analyzer.py --ollama-url http://X.X.X.X:11434  #Modificar URL
 
-bash
+Terminal 4 - Cliente/Atacante:
 cd cliente-atacante
 python3 atacante.py
 
@@ -120,6 +115,12 @@ Personalizar análisis LLM
 Modificar prompt en analyze_with_llm()
 Ajustar temperatura (0-1) para variabilidad
 Cambiar modelo en parámetro --model
+Cambiar URL de Ollama en parámetro --ollama-url http://x.x.x.x:14434
+Observar logs generados por el LLM con los comandos:
+   *Observar en una segunda terminal en vivo: tail -f ../logs/anomalies.jsonl | jq
+   cat ../logs/analysis.jsonl | jq -r '.llm_analysis'
+   cat ../logs/admin_alerts.log
+
 📚 Referencias
 Go TLS Documentation
 Python Requests SSL
