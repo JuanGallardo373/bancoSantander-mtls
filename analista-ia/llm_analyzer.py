@@ -16,7 +16,7 @@ import threading
 class MTLSAnomalyAnalyzer:
     """Analizador de anomalías mTLS con LLM local"""
     
-    def __init__(self, ollama_url="http://localhost:11434", model="llama3"):
+    def __init__(self, ollama_url="http://localhost:11434", model="llama2"):
         """
         Inicializa el analizador
         
@@ -361,8 +361,8 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="llama3",
-        help="Modelo LLM a usar (default: llama3)"
+        default="llama2",
+        help="Modelo LLM a usar (default: llama2)"
     )
     parser.add_argument(
         "--interval",
