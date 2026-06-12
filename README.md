@@ -94,12 +94,10 @@ Solución: Asegurar que el certificado cliente es válido y está firmado por la
 Error: "No se puede conectar a Ollama"
 Code
 Solución: 
-1. Instalar Ollama: https://ollama.ai
+1. Instalar Ollama
 2. Ejecutar: ollama serve
 3. Descargar modelo: ollama pull llama2
-Error: "Connection refused" en cliente
-Code
-Solución: Asegurar que el servidor Go está ejecutándose en puerto 8443
+
 📝 Notas de Desarrollo
 Agregar nuevo cliente
 Generar certificado con autoridad CA
