@@ -108,19 +108,22 @@ def main():
     print("🔍 Verificación de disponibilidad del servidor...")
     print("=" * 62)
     
+    # Creamos la sesión del atacante ANTES del healthcheck
+    print("\n🔐 Configurando cliente con certificado autofirmado...")
+    session = create_attacker_session(ATTACKER_CERT, ATTACKER_KEY)
+    print("✓ Sesión configurada (certificado NO verificado por CA)") 
     try:
-        # Intentar health check (sin mTLS obligatorio en /health)
-        response = requests.get(f"{SERVER_URL}/health", verify=False, timeout=5)
+        # Intentamos el healthcheck usando la sesión con mTLS inválido
         if response.status_code == 200:
             print("✓ Servidor disponible")
-            print(f"  Respuesta: {response.json()}")
         else:
             print(f"⚠️  Servidor responde con código {response.status_code}")
+    except requests.exceptions.SSLError as e:
+        # ¡Capturamos el bloqueo exitoso en los logs de la consola del atacante!
+        print("🛡️  RESULTADO ESPERADO: El handshake fue bloqueado inmediatamente por el servidor Go.")
+        print(f"   Detalle criptográfico: {str(e)[:100]}...")
     except Exception as e:
-        print(f"❌ Servidor no disponible: {e}")
-        print("   Asegúrate de que el servidor Santander está corriendo:")
-        print("   $ cd servidor-banco && go run main.go")
-        return
+        print(f"❌ Error inesperado de red: {e}")
     
     print()
     print("=" * 62)
