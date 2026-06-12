@@ -16,7 +16,7 @@ import threading
 class MTLSAnomalyAnalyzer:
     """Analizador de anomalías mTLS con LLM local"""
     
-    def __init__(self, ollama_url="http://localhost:11434", model="llama3"):
+    def __init__(self, ollama_url="http://192.168.0.7:11434", model="llama3"):
         """
         Inicializa el analizador
         
@@ -94,7 +94,7 @@ class MTLSAnomalyAnalyzer:
         return formatted
     
     def analyze_with_llm(self, anomalies_text):
-        """Analiza anomalías usando LLM local (Ollama)"""
+        """Analiza anomalías usando LLM local (Ollama) con Streaming en vivo"""
         prompt = f"""Eres un experto en seguridad mTLS en sistemas bancarios. 
 Analiza las siguientes anomalías de seguridad detectadas en el servidor Santander.
 Identifica patrones de ataque, valida si son intentos maliciosos y proporciona recomendaciones inmediatas.
@@ -114,25 +114,40 @@ Sé preciso, técnico y enfocado en la seguridad del banco.
 Asume que estamos bajo ataque potencial y reacciona en consecuencia."""
         
         try:
+            print("   Generando análisis en vivo: ", end="", flush=True)
+            
             response = requests.post(
                 f"{self.ollama_url}/api/generate",
                 json={
                     "model": self.model,
                     "prompt": prompt,
-                    "stream": False,
-                    "temperature": 0.2  # Más bajo para respuestas más deterministas
+                    "stream": True,  # <-- CAMBIO 1: Le pedimos a Ollama que envíe palabras sueltas
+                    "temperature": 0.2
                 },
-                timeout=120  # Timeout más largo para análisis complejos
+                stream=True,         # <-- CAMBIO 2: Le decimos a Python que lea por fragmentos
+                timeout=300          # <-- Aumentamos el timeout a 5 minutos por si la VM es lenta
             )
             
             if response.status_code == 200:
-                return response.json().get('response', '')
+                full_response = ""
+                # Imprimimos la respuesta token por token a medida que se genera
+                for line in response.iter_lines():
+                    if line:
+                        chunk = json.loads(line)
+                        word = chunk.get("response", "")
+                        full_response += word
+                        print(word, end="", flush=True)
+                
+                print() # Salto de línea cuando termina
+                return full_response
             else:
                 return f"Error en LLM: {response.status_code} - {response.text}"
         
+        except requests.exceptions.Timeout:
+            return "Error: Timeout agotado. La IA tardó demasiado en responder (VM con bajos recursos)."
         except requests.RequestException as e:
             return f"No se pudo conectar a Ollama: {e}"
-    
+
     def save_analysis(self, anomalies, analysis):
         """Guarda el análisis en archivo JSON"""
         analysis_entry = {
@@ -356,8 +371,8 @@ def main():
     )
     parser.add_argument(
         "--ollama-url",
-        default="http://localhost:11434",
-        help="URL del servidor Ollama (default: http://localhost:11434)"
+        default="http://192.168.0.7:11434",
+        help="URL del servidor Ollama (default: http://192.168.0.7:11434)"
     )
     parser.add_argument(
         "--model",

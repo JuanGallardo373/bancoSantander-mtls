@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Atacante intenta comunicacion mTLS con Banco Santander
-Simula solicitudes de transferencia bancaria con certificado robado
+Script de Atacante - Intenta conectar con certificado autofirmado
+Simula un ataque MITM o suplantación de identidad contra el servidor Santander
 """
 
 import requests
@@ -11,156 +11,223 @@ import sys
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
+import warnings
 
-class MTLSAdapter(HTTPAdapter):
-    def __init__(self, cert_file, key_file, ca_file, **kwargs):
+# Suprimir advertencias de SSL
+warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+
+class AttackerMTLSAdapter(HTTPAdapter):
+    """Adaptador para intentar conexión con certificado autofirmado"""
+    
+    def __init__(self, cert_file, key_file, **kwargs):
         self.cert_file = cert_file
         self.key_file = key_file
-        self.ca_file = ca_file
         super().__init__(**kwargs)
     
     def init_poolmanager(self, *args, **kwargs):
         ctx = create_urllib3_context()
-        ctx.load_cert_chain(self.cert_file, self.key_file)
+        # Intentar cargar certificado autofirmado
+        try:
+            ctx.load_cert_chain(self.cert_file, self.key_file)
+        except Exception as e:
+            print(f"⚠️  Error cargando certificado autofirmado: {e}")
         kwargs['ssl_context'] = ctx
         return super().init_poolmanager(*args, **kwargs)
 
-def create_mtls_session(cert_path, key_path, ca_path):
-    """Crea una sesión con mTLS configurado"""
+def create_attacker_session(cert_path, key_path):
+    """Crea una sesión con certificado autofirmado"""
     session = requests.Session()
-    adapter = MTLSAdapter(
+    adapter = AttackerMTLSAdapter(
         cert_file=cert_path,
         key_file=key_path,
-        ca_file=ca_path,
         pool_connections=10,
         pool_maxsize=10
     )
     session.mount('https://', adapter)
     return session
 
-def create_transfer_request(amount, destination_account, destination_bank="Santander"):
-    """Crea una solicitud de transferencia"""
+def create_malicious_transfer(amount, target_account):
+    """Crea una solicitud de transferencia maliciosa"""
     return {
-        "source_bank": "Lemoncash",
-        "source_account": "LC-ACC-001",
-        "destination_bank": destination_bank,
-        "destination_account": destination_account,
+        "source_bank": "ATTACKER_BANK",
+        "source_account": "ATTACKER-ACC-001",
+        "destination_bank": "Santander",
+        "destination_account": target_account,
         "amount": amount,
         "currency": "USD"
     }
 
-def send_transfer(session, server_url, transfer_data, ca_file, timeout=10):
-    """Envía una solicitud de transferencia al servidor"""
+def attempt_transfer(session, server_url, transfer_data, attempt_num, timeout=10):
+    """Intenta enviar una transferencia maliciosa"""
     try:
         response = session.post(
             f"{server_url}/transfer",
             json=transfer_data,
-            verify=f"{ca_file}",
-            timeout=timeout
+            timeout=timeout,
         )
         return response
+    
     except requests.exceptions.SSLError as e:
-        print(f"❌ Error SSL/mTLS: {e}")
-        return None
+        return None, str(e)
+    except requests.exceptions.ConnectionError as e:
+        return None, str(e)
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error en la solicitud: {e}")
-        return None
+        return None, str(e)
 
-def log_transaction(timestamp, status, transfer_id, amount, response_code):
-    """Registra una transacción en logs"""
-    log_entry = {
-        "timestamp": timestamp,
-        "client": "Lemoncash",
-        "status": status,
-        "transfer_id": transfer_id,
-        "amount": amount,
-        "response_code": response_code
-    }
-    print(json.dumps(log_entry, indent=2, default=str))
+def print_header():
+    """Imprime banner de atacante"""
+    header = """
+╔══════════════════════════════════════════════════════════════╗
+║                   🔴 SIMULATED ATTACKER 🔴                  ║
+║                                                              ║
+║  Intentando acceder al servidor Santander con              ║
+║  certificado autofirmado (NO AUTORIZADO)                   ║
+║                                                              ║
+║  ⚠️  Este script es solo para fines educativos             ║
+║  ⚠️  Se espera que FALLE y sea DETECTADO                   ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+"""
+    print(header)
 
 def main():
-    # Configuración
-    SERVER_URL = "https://localhost:8443"
-    CERT_FILE = "../cliente-mercadopago/certs/mpago-cert.pem"
-    KEY_FILE = "./certs/atacante-key.pem"
-    CA_FILE = "../CABancoCentral/cacert.pem"
+    print_header()
     
-    print("=" * 60)
-    print("🎯 Cliente atancante - mTLS Bank Transfer")
-    print("=" * 60)
-    print(f"Conectando a: {SERVER_URL}")
-    print(f"Certificados: {CERT_FILE}, {KEY_FILE}")
+    # Configuración del atacante
+    SERVER_URL = "https://localhost:8443"
+    ATTACKER_CERT = "./certs/atacante-cert.pem"
+    ATTACKER_KEY = "./certs/atacante-key.pem"
+    
+    print("🎯 Objetivo: Banco Santander")
+    print(f"📍 Servidor: {SERVER_URL}")
+    print(f"🔓 Certificado (autofirmado): {ATTACKER_CERT}")
     print()
     
+    print("=" * 62)
+    print("🔍 Verificación de disponibilidad del servidor...")
+    print("=" * 62)
+    
+    # Creamos la sesión del atacante ANTES del healthcheck
+    print("\n🔐 Configurando cliente con certificado autofirmado...")
+    session = create_attacker_session(ATTACKER_CERT, ATTACKER_KEY)
+    print("✓ Sesión configurada (certificado NO verificado por CA)") 
+    
     try:
-        # Crear sesión mTLS
-        print("🔐 Configurando mTLS...")
-        session = create_mtls_session(CERT_FILE, KEY_FILE, CA_FILE)
-        
-        # Verificar conectividad con health check
-        print("✓ Verificando conectividad con el servidor...")
-        health_response = session.get(f"{SERVER_URL}/health", verify=CA_FILE, timeout=5)
-        if health_response.status_code == 200:
-            print(f"✓ Servidor activo: {health_response.json()}")
+        # Intentamos el healthcheck usando la sesión con mTLS inválido
+        response = session.get(f"{SERVER_URL}/health", timeout=5)
+        if response.status_code == 200:
+            print("✓ Servidor disponible")
         else:
-            print(f"⚠️  Respuesta inesperada del servidor: {health_response.status_code}")
+            print(f"⚠️  Servidor responde con código {response.status_code}")
+    except requests.exceptions.SSLError as e:
+        # ¡Capturamos el bloqueo exitoso en los logs de la consola del atacante!
+        print("🛡️  RESULTADO ESPERADO: El handshake fue bloqueado inmediatamente por el servidor Go.")
+        print(f"   Detalle criptográfico: {str(e)[:100]}...")
+    except Exception as e:
+        print(f"Error inesperado de red: {e}")
+
+    print()
+    print("=" * 62)
+    print("🚨 INICIANDO ATAQUES CON CERTIFICADO AUTOFIRMADO...")
+    print("=" * 62)
+    
+    try:
+    
         
-        print()
-        print("=" * 60)
-        print("📤 Enviando transferencias...")
-        print("=" * 60)
-        
-        # Simular múltiples transferencias
-        transfers = [
-            {"amount": 150000.00, "destination_account": "ACC-SANTANDER-001", "description": "Pago de servicios"},
-            {"amount": 250000.50, "destination_account": "ACC-SANTANDER-002", "description": "Remesa internacional"},
-            {"amount": 800000.00, "destination_account": "ACC-SANTANDER-003", "description": "Pago de deudas"},
+        # Intentos de transferencia maliciosa
+        attack_scenarios = [
+            {
+                "description": "Transferencia grande no autorizada",
+                "amount": 999999.99,
+                "target": "ACC-VICTIM-001"
+            },
+            {
+                "description": "Suplantación de BBVA",
+                "amount": 50000.00,
+                "target": "ACC-SANTANDER-EXECUTIVE"
+            },
+            {
+                "description": "Extracción de fondos",
+                "amount": 100000.00,
+                "target": "ACC-ATTACKER-MONEY-LAUNDRY"
+            },
         ]
         
-        for i, transfer_info in enumerate(transfers, 1):
+        successful_attacks = 0
+        rejected_attacks = 0
+        connection_errors = 0
+        
+        for i, scenario in enumerate(attack_scenarios, 1):
             timestamp = datetime.now().isoformat()
             
-            # Crear solicitud
-            transfer_data = create_transfer_request(
-                amount=transfer_info["amount"],
-                destination_account=transfer_info["destination_account"]
+            # Crear solicitud maliciosa
+            malicious_transfer = create_malicious_transfer(
+                amount=scenario["amount"],
+                target_account=scenario["target"]
             )
             
-            print(f"\n[{i}] {transfer_info['description']}")
-            print(f"    Monto: ${transfer_info['amount']:.2f} USD")
-            print(f"    Destinatario: {transfer_info['destination_account']}")
+            print(f"\n{'─' * 62}")
+            print(f"📤 Escenario {i}: {scenario['description']}")
+            print(f"   → Monto: ${scenario['amount']:,.2f}")
+            print(f"   → Cuenta destino: {scenario['target']}")
+            print(f"{'─' * 62}")
             
-            # Enviar solicitud
-            response = send_transfer(session, SERVER_URL, transfer_data, CA_FILE)
+            # Intentar enviar
+            response = attempt_transfer(session, SERVER_URL, malicious_transfer, i)
             
-            if response:
-                status = "SUCCESS" if response.status_code == 200 else "FAILED"
-                response_code = response.status_code
-                
-                if response.status_code == 200:
-                    response_data = response.json()
-                    transfer_id = response_data.get("transfer_id", "UNKNOWN")
-                    print(f"    ✓ Respuesta: {response_data['message']}")
-                    print(f"    ID Transacción: {transfer_id}")
-                else:
-                    transfer_id = "FAILED"
-                    print(f"    ❌ Error: {response.text}")
-                
-                log_transaction(timestamp, status, transfer_id, transfer_info["amount"], response_code)
+            if isinstance(response, tuple):
+                response, error_msg = response
+            
+            if response is None:
+                # Error de conexión/SSL
+                print(f"\n❌ Conexión rechazada (SSL/mTLS)")
+                print(f"   Error: {error_msg[:100]}...")
+                connection_errors += 1
+            elif response.status_code == 200:
+                # ¡Ataque exitoso! (NO debería suceder)
+                print(f"\n🚨 ¡¡ATAQUE EXITOSO!! (No debería suceder)")
+                print(f"   Respuesta del servidor: {response.json()}")
+                successful_attacks += 1
             else:
-                log_transaction(timestamp, "FAILED", "N/A", transfer_info["amount"], 0)
+                # Ataque rechazado por aplicación
+                print(f"\n❌ Ataque rechazado (código {response.status_code})")
+                print(f"   Respuesta: {response.text[:100]}...")
+                rejected_attacks += 1
             
-            # Esperar entre transferencias
-            if i < len(transfers):
+            # Esperar entre intentos
+            if i < len(attack_scenarios):
                 time.sleep(1)
         
+        # Resumen
         print()
-        print("=" * 60)
-        print("✓ Transferencias completadas")
-        print("=" * 60)
+        print("=" * 62)
+        print("📊 RESUMEN DE INTENTOS DE ATAQUE")
+        print("=" * 62)
+        print(f"Total de intentos: {len(attack_scenarios)}")
+        print(f"Ataques exitosos: {successful_attacks}")
+        print(f"Ataques rechazados (HTTP): {rejected_attacks}")
+        print(f"Conexiones rechazadas (mTLS): {connection_errors}")
+        
+        if successful_attacks == 0 and connection_errors > 0:
+            print("\n✅ RESULTADO ESPERADO: Todos los ataques fueron bloqueados en mTLS")
+            print("   El servidor Santander rechazó correctamente en handshake TLS 1.3")
+            print("\n📋 Los intentos de ataque han sido registrados en:")
+            print("   ../logs/anomalies.jsonl")
+            print("\n🤖 Ejecuta el analizador LLM para ver el análisis de seguridad:")
+            print("   python3 ../analista-ia/llm_analyzer.py")
+        elif successful_attacks > 0:
+            print(f"\n🚨 FALLO DE SEGURIDAD: {successful_attacks} ataques fueron exitosos")
+            print("   ¡El servidor debe rechazar certificados autofirmados!")
+        else:
+            print("\n✅ Todos los ataques fueron detectados y bloqueados")
+        
+        print()
+        print("=" * 62)
         
     except Exception as e:
-        print(f"❌ Error fatal: {e}")
+        print(f"\n❌ Error durante el ataque: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
