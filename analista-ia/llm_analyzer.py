@@ -129,7 +129,8 @@ Asume que estamos bajo ataque potencial y reacciona en consecuencia."""
                 return response.json().get('response', '')
             else:
                 return f"Error en LLM: {response.status_code} - {response.text}"
-        
+        except requests.exceptions.Timeout:
+            return "Error: Timeout agotado. La IA tardó demasiado en responder (VM con bajos recursos)."        
         except requests.RequestException as e:
             return f"No se pudo conectar a Ollama: {e}"
     
