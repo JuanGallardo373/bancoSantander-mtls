@@ -31,12 +31,13 @@ Este proyecto implementa:
 
 ### Sistema
 - **Go** 1.19+
-sudo apt install golang-go
+     sudo apt install golang-go
 - **Python** 3.8+
-sudo apt install -y python3 python3-pip python3-dev python3-venv libssl-dev libffi-dev && \
-pip3 install --upgrade pip
+     sudo apt install -y python3 python3-pip python3-dev python3-venv libssl-dev libffi-dev && \
+     pip3 install --upgrade pip
 - **Ollama** (para análisis con LLM)
-curl -fsSL https://ollama.com/install.sh | sh
+     Linux: curl -fsSL https://ollama.com/install.sh | sh
+     Windows: https://ollama.com/download/windows
 
 ### Instalación
 # Clonar repositorio
@@ -44,7 +45,7 @@ git clone https://github.com/JuanGallardo373/bancoSantander-mtls.git
 cd bancoSantander-mtls
 
 # Instalar y descargar modelo Ollama
-ollama pull llama2 / ollama pull llama3
+ollama pull llama3
 
 🚀 Cómo Usarlo:
 Terminal 1 - Ollama:
