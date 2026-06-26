@@ -127,6 +127,8 @@ Devuelve tu análisis estrictamente en el siguiente formato Markdown:
 2. [Acción 2, ej: Aplicar rate limiting en el balanceador]
 
 Sé sumamente preciso, técnico y escueto. No asumas intenciones sin evidencia en los logs."""
+
+        start_time = time.time()
         try:
             response = requests.post(
                 f"{self.ollama_url}/api/generate",
@@ -138,6 +140,9 @@ Sé sumamente preciso, técnico y escueto. No asumas intenciones sin evidencia e
                 },
                 timeout=120  # Timeout más largo para análisis complejos
             )
+            end_time = time.time()
+            llm_duration_seconds = end_time - start_time
+            print(f"⏱️ Tiempo de procesamiento de Ollama: {llm_duration_seconds:.2f} segundos.")
             
             if response.status_code == 200:
                 return response.json().get('response', '')
