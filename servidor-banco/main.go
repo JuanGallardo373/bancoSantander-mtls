@@ -168,15 +168,21 @@ type TLSHandshakeInterceptor struct {
 	handshakeDone bool
 }
 
-// Sobreescribimos el método Read para capturar el error TLS real
+// Método Read para capturar el error TLS real y medir el Handshake
 func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 	// Forzamos el Handshake manualmente en la primera lectura (que ya ocurre en el fondo)
 	if !c.handshakeDone {
+		// ⏱️ CAPTURA INICIAL
+		startHandshake := time.Now()
+		
 		err := c.Conn.Handshake()
 		c.handshakeDone = true
+
+		// ⏱️ CÁLCULO FINAL: Handshake finalizado (con éxito o error)
+		latency := time.Since(startHandshake).Milliseconds()
 		
 		if err != nil {
-			// ¡AQUÍ CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA!
+			// CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA
 			clientIP := extractClientIP(c.Conn.RemoteAddr().String())
 
 			anomaly := AnomalyLog{
@@ -188,14 +194,20 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 			}
 
 			logAnomaly(anomaly)
-			log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s", err.Error(), clientIP)
-
+            log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s | Tiempo de procesamiento kernel: %d ms", err.Error(), clientIP, latency)
 			// Retornamos el error al servidor HTTP para que cierre esta Goroutine,
 			// pero el servidor principal en :8443 sigue intacto.
 			return 0, err
 		}
+		// ESCENARIO EXITOSO: (Prueba 1 - Fintechs legítimas)
+		var clientName string
+		if len(c.Conn.ConnectionState().PeerCertificates) > 0 {
+			clientName = c.Conn.ConnectionState().PeerCertificates[0].Subject.CommonName
+		} else {
+			clientName = "unknown"
+		}
+		log.Printf("🔐 🟢 HANDSHAKE mTLS EXITOSO | Cliente: %s | Latencia de negociación: %d ms", clientName, latency)
 	}
-
 	// Si el handshake fue exitoso (Mercado Pago / BBVA), lee los datos del body JSON normal
 	return c.Conn.Read(b)
 }
