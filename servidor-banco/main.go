@@ -89,15 +89,7 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
-
-	// Obtener nombre del cliente del certificado validado
-	var clientName string
-	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
-		clientName = r.TLS.PeerCertificates[0].Subject.CommonName
-	} else {
-		clientName = "unknown"
-	}
-
+	
 	// Parsear el body de la solicitud
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -117,8 +109,8 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 	transferID := fmt.Sprintf("TRX-%d-%d", time.Now().Unix(), transferIDCounter)
 
 	// Log de transferencia exitosa
-	log.Printf("✓ Transferencia recibida: %s | De: %s | A: %s | Monto: %.2f %s | Cliente: %s",
-		transferID, transferReq.SourceBank, transferReq.DestinationBank, transferReq.Amount, transferReq.Currency, clientName)
+	log.Printf("✓ Transferencia recibida: %s | De: %s | A: %s | Monto: %.2f %s",
+		transferID, transferReq.SourceBank, transferReq.DestinationBank, transferReq.Amount, transferReq.Currency)
 
 	// Respuesta exitosa
 	response := TransferResponse{
