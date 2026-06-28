@@ -104,7 +104,7 @@ Logs a procesar:
 Tu salida debe seguir EXACTAMENTE esta estructura de texto plano:
 Clasificación de riesgo: [CRÍTICO|ALTO|MEDIO|BAJO]
 Tipo de ataque: [MITM|Suplantación|Fuerza Bruta|Escaneo de Vulnerabilidades|Ninguno]
-Bloquear en Firewall: [SI|NO] - [Breve razón en pocas palabras]
+Bloquear IP: [SI|NO] - [Breve razón en pocas palabras]
 Notificar Admin: [SI|NO]
 
 * **Identificación por Evento:**
@@ -155,50 +155,35 @@ Notificar Admin: [SI|NO]
         except Exception as e:
             print(f"❌ Error guardando análisis: {e}")
     
-    def check_alert_conditions(self, anomalies, analysis):
-        """Verifica si se debe generar alerta al administrador"""
-        alert = {
-            "should_alert": False,
-            "reason": "",
-            "severity": "LOW"
-        }
+def check_alert_conditions(self, anomalies, analysis):
+    """Verifica si se debe generar alerta al administrador basándose en la salida estructurada del LLM"""
+    alert = {
+        "should_alert": False,
+        "reason": "",
+        "severity": "LOW"
+    }
+    
+    analysis_upper = analysis.upper()
+    anomaly_count = len(anomalies)
+    
+    is_critical_risk = "Clasificación de riesgo: CRÍTICO" in analysis_upper or "Clasificación de riesgo: ALTO" in analysis_upper
+    should_block = "Bloquear IP: SI" in analysis_upper
+    should_notify = "Notificar Admin: SI" in analysis_upper
+    
+    if should_notify or is_critical_risk or should_block:
+        alert["should_alert"] = True
         
-        # Condiciones para alertas
-        critical_keywords = [
-            "certificado autofirmado",
-            "certificado expirado",
-            "intentos fallidos",
-            "múltiples intentos",
-            "patrón de ataque",
-            "crítico",
-            "bloquear",
-            "mitm",
-            "suplantación"
-        ]
-        
-        analysis_lower = analysis.lower()
-        
-        # Contar anomalías
-        anomaly_count = len(anomalies)
-        
-        # Verificar palabras clave críticas
-        has_critical = any(keyword in analysis_lower for keyword in critical_keywords)
-        
-        # Lógica de alertas mejorada
-        if anomaly_count >= 2 and has_critical:
-            alert["should_alert"] = True
+        if anomaly_count >= 2 and is_critical_risk:
             alert["severity"] = "CRÍTICO"
-            alert["reason"] = f"Múltiples anomalías críticas detectadas ({anomaly_count})"
-        elif "crítico" in analysis_lower or "bloquear" in analysis_lower:
-            alert["should_alert"] = True
+            alert["reason"] = f"Múltiples anomalías críticas detectadas ({anomaly_count}) y ratificadas por el LLM"
+        elif "RISK: CRÍTICO" in analysis_upper or should_block:
             alert["severity"] = "CRÍTICO"
-            alert["reason"] = "LLM detectó riesgo crítico que requiere acción inmediata"
-        elif anomaly_count >= 1 and has_critical:
-            alert["should_alert"] = True
+            alert["reason"] = "El agente LLM determinó riesgo crítico con requerimiento de bloqueo de IP"
+        else:
             alert["severity"] = "ALTO"
-            alert["reason"] = f"Anomalía de seguridad crítica detectada"
-        
-        return alert
+            alert["reason"] = "Anomalía de seguridad mitigada en transporte que requiere auditoría"
+            
+    return alert
     
     def send_admin_notification(self, alert, analysis, anomalies):
         """Envía notificación al administrador"""
