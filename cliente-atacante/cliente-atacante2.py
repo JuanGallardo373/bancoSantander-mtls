@@ -107,23 +107,10 @@ def main():
     print("🔍 Verificación de disponibilidad del servidor...")
     print("=" * 62)
     
-    # Creamos la sesión del atacante ANTES del healthcheck
+    # Creamos la sesión del atacante
     print("\n🔐 Configurando cliente con certificado autofirmado...")
     session = create_attacker_session(ATTACKER_CERT, ATTACKER_KEY)
-    print("✓ Sesión configurada (certificado NO verificado por CA)") 
-    try:
-        # Intentamos el healthcheck usando la sesión con mTLS inválido
-        if response.status_code == 200:
-            print("✓ Servidor disponible")
-        else:
-            print(f"⚠️  Servidor responde con código {response.status_code}")
-    except requests.exceptions.SSLError as e:
-        # ¡Capturamos el bloqueo exitoso en los logs de la consola del atacante!
-        print("🛡️  RESULTADO ESPERADO: El handshake fue bloqueado inmediatamente por el servidor Go.")
-        print(f"   Detalle criptográfico: {str(e)[:100]}...")
-    except Exception as e:
-        print(f"❌ Error inesperado de red: {e}")
-    
+    print("✓ Sesión configurada (certificado NO verificado por CA)")     
     print()
     print("=" * 62)
     print("🚨 INICIANDO ATAQUES CON CERTIFICADO AUTOFIRMADO...")
@@ -207,10 +194,6 @@ def main():
         if successful_attacks == 0 and connection_errors > 0:
             print("\n✅ RESULTADO ESPERADO: Todos los ataques fueron bloqueados en mTLS")
             print("   El servidor Santander rechazó correctamente en handshake TLS 1.3")
-            print("\n📋 Los intentos de ataque han sido registrados en:")
-            print("   ../logs/anomalies.jsonl")
-            print("\n🤖 Ejecuta el analizador LLM para ver el análisis de seguridad:")
-            print("   python3 ../analista-ia/llm_analyzer.py")
         elif successful_attacks > 0:
             print(f"\n🚨 FALLO DE SEGURIDAD: {successful_attacks} ataques fueron exitosos")
             print("   ¡El servidor debe rechazar certificados autofirmados!")
