@@ -317,11 +317,6 @@ ACCIÓN REQUERIDA:
                     print(f"\n🤖 Analizando con LLM ({self.model})...")
                     analysis = self.analyze_with_llm(anomalies_text)
                     
-                    print("\n" + "─"*70)
-                    print("ANÁLISIS DEL LLM:")
-                    print("─"*70)
-                    print(analysis)
-                    
                     # Guardar análisis
                     self.save_analysis(new_anomalies, analysis)
                     
