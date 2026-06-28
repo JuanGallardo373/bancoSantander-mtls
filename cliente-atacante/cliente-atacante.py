@@ -102,15 +102,7 @@ def main():
     try:
         print("🔐 Ensamblando identidad mTLS...")
         session = create_mtls_session(CERT_FILE, KEY_FILE, CA_FILE)
-        
-        print("✓ Verificando conectividad con el servidor...")
-        try:
-            health_response = session.get(f"{SERVER_URL}/health", timeout=5)
-            if health_response.status_code == 200:
-                print(f"✓ Servidor activo: {health_response.json()}")
-        except requests.exceptions.SSLError as e:
-             print("\n🛡️  El banco rechazó la conexión anónima en el healthcheck.")
-        
+    
         print()
         print("=" * 60)
         print("📤 Ejecutando ataques de inyección de transferencias...")
