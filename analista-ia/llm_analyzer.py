@@ -94,39 +94,22 @@ class MTLSAnomalyAnalyzer:
         return formatted
     
     def analyze_with_llm(self, anomalies_text):
-prompt = f"""Eres un analista experto en ciberseguridad, especializado en mTLS y seguridad perimetral para infraestructura bancaria crítica (Santander). 
-Tu tarea es auditar de forma estricta el siguiente bloque de anomalías de red/mTLS detectadas.
-[INICIO DE DATOS DE ANOMALÍAS]
+        prompt = f"""[INST] Eres un agente de ciberseguridad financiera en espacio de usuario.
+Analiza la ráfaga de logs mTLS adjunta. Responde de forma puramente técnica y ultra-concisa.
+ESTRICTAMENTE prohibido introducir párrafos introductorios, saludos, notas o prosa explicativa.
+
+Logs a procesar:
 {anomalies_text}
-[FIN DE DATOS DE ANOMALÍAS]
 
-[INSTRUCCIONES DE EVALUACIÓN]
-1. Analiza de forma técnica, fría y objetiva. Evita introducciones, saludos o conclusiones genéricas. Va directo al grano.
-2. Identifica patrones correlacionados (mismo origen, ráfagas de tiempo, firmas TLS sospechosas).
+Tu salida debe seguir EXACTAMENTE esta estructura de texto plano:
+Clasificación de riesgo: [CRÍTICO|ALTO|MEDIO|BAJO]
+Tipo de ataque: [MITM|Suplantación|Fuerza Bruta|Escaneo de Vulnerabilidades|Ninguno]
+Bloquear en Firewall: [SI|NO] - [Breve razón en pocas palabras]
+Notificar Admin: [SI|NO]
 
-[FORMATO DE SALIDA REQUERIDO]
-Devuelve tu análisis estrictamente en el siguiente formato Markdown:
-
-### 1. Resumen Ejecutivo de Riesgo
-* **Nivel de Riesgo Global:** [CRÍTICO | ALTO | MEDIO | BAJO]
-* **Tipo de Ataque Probable:** [Ej. MITM, Fuerza Bruta de Certificados, Escaneo de Vulnerabilidades, Ninguno]
-* **Alerta Inmediata:** [SI/NO] (¿Requiere intervención humana en los próximos 5 minutos?)
-
-### 2. Desglose y Patrones de Eventos
-* **Análisis de Patrones:** [Describe brevemente si hay coordinación de IPs, ataques distribuidos o persistencia horaria]
 * **Identificación por Evento:**
   - **Evento [ID o IP]:** [Interpretación técnica de lo que intentó hacer y por qué falló mTLS]
-
-### 3. Matriz de Decisiones Técnicas
-| IP Origen | ¿Bloquear en Firewall? (SI/NO) | Justificación Técnica | Notificar Admin (SI/NO) |
-| :--- | :--- | :--- | :--- |
-| [IP] | [SI/NO] | [Razón corta basada en los Handshakes fallidos] | [SI/NO] |
-
-### 4. Plan de Acción Inmediato (Playbook)
-1. [Acción 1, ej: Revocar certificado de la CA comprometida]
-2. [Acción 2, ej: Aplicar rate limiting en el balanceador]
-
-Sé sumamente preciso, técnico y escueto. No asumas intenciones sin evidencia en los logs."""
+[/INST]"""
 
         start_time = time.time()
         try:
