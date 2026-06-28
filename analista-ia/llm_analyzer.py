@@ -155,23 +155,23 @@ Notificar Admin: [SI|NO]
         except Exception as e:
             print(f"❌ Error guardando análisis: {e}")
     
-def check_alert_conditions(self, anomalies, analysis):
-    """Verifica si se debe generar alerta al administrador basándose en la salida estructurada del LLM"""
-    alert = {
-        "should_alert": False,
-        "reason": "",
-        "severity": "LOW"
-    }
+    def check_alert_conditions(self, anomalies, analysis):
+        """Verifica si se debe generar alerta al administrador basándose en la salida estructurada del LLM"""
+        alert = {
+            "should_alert": False,
+            "reason": "",
+            "severity": "LOW"
+        }
     
-    analysis_upper = analysis.upper()
-    anomaly_count = len(anomalies)
+        analysis_upper = analysis.upper()
+        anomaly_count = len(anomalies)
     
-    is_critical_risk = "Clasificación de riesgo: CRÍTICO" in analysis_upper or "Clasificación de riesgo: ALTO" in analysis_upper
-    should_block = "Bloquear IP: SI" in analysis_upper
-    should_notify = "Notificar Admin: SI" in analysis_upper
+        is_critical_risk = "Clasificación de riesgo: CRÍTICO" in analysis_upper or "Clasificación de riesgo: ALTO" in analysis_upper
+        should_block = "Bloquear IP: SI" in analysis_upper
+        should_notify = "Notificar Admin: SI" in analysis_upper
     
-    if should_notify or is_critical_risk or should_block:
-        alert["should_alert"] = True
+        if should_notify or is_critical_risk or should_block:
+            alert["should_alert"] = True
         
         if anomaly_count >= 2 and is_critical_risk:
             alert["severity"] = "CRÍTICO"
@@ -183,7 +183,7 @@ def check_alert_conditions(self, anomalies, analysis):
             alert["severity"] = "ALTO"
             alert["reason"] = "Anomalía de seguridad mitigada en transporte que requiere auditoría"
             
-    return alert
+        return alert
     
     def send_admin_notification(self, alert, analysis, anomalies):
         """Envía notificación al administrador"""
