@@ -176,7 +176,11 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 		if err != nil {
 			// CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA
 			clientIP := extractClientIP(c.Conn.RemoteAddr().String())
-
+            // 🔴 FILTRO DE CONTINGENCIA: Si el error es un reset por descarte del cliente, lo ignoramos de anomalies.jsonl
+            if strings.Contains(errStr, "connection reset by peer") || strings.Contains(errStr, "broken pipe") {
+                log.Printf("⚠️ Socket TCP cerrado abruptamente por el cliente de estrés (s_time) | IP: %s", clientIP)
+                return 0, err
+            }
 			anomaly := AnomalyLog{
 				EventType:      "MTLS_HANDSHAKE_FAILED",
 				ClientIP:       clientIP,
