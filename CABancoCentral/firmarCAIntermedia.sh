@@ -6,3 +6,4 @@ openssl ca -config ca.conf -extensions v3_intermedia \
     -cert bcra-raiz.crt -keyfile private/bcra-raiz.key \
     -out ../CAIntermediaBANELCO/banelco-inter.crt -infiles ../CAIntermediaBANELCO/banelco-inter.csr
 echo "Certificado firmado por el Banco Central (CA)"
+openssl x509 -in ../CAIntermediaBANELCO/banelco-inter.crt -text -noout
