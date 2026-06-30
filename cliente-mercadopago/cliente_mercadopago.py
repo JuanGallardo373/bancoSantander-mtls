@@ -92,7 +92,7 @@ def main():
     SERVER_URL = "https://localhost:8443"
     CERT_FILE = "./certs/mpago-cert.pem"
     KEY_FILE = "./certs/mpago-key.pem"
-    CA_FILE = "../CABancoCentral/cacert.pem"
+    CA_FILE = "'../CAIntermediaBANELCO/bundle.crt'"
     
     print("=" * 60)
     print("🎯 Cliente Mercadopago - mTLS Bank Transfer")

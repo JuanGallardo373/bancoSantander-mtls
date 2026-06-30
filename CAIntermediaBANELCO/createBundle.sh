@@ -1,0 +1,1 @@
+cat certs/banelco-inter.crt ../CABancoCentral/certs/cacert.pem > bundle.crt

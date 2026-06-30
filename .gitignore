@@ -23,6 +23,8 @@ CABancoCentral/*.pem
 #Certificates database and serial number
 CABancoCentral/index.txt*
 CABancoCentral/serial*
+CAIntermediaBANELCO/index.txt*
+CAIntermediaBANELCO/serial*
 
 # Logs
 logs/*.log

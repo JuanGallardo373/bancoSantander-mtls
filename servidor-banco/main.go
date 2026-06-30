@@ -212,14 +212,14 @@ func main() {
 	defer logFile.Close()
 
 	// Cargar certificados de cliente (CA)
-	caCert, err := os.ReadFile("../CABancoCentral/cacert.pem")
+	caCert, err := os.ReadFile("../CAIntermediaCOELSA/bundle.crt")
 	if err != nil {
-		log.Fatalf("Error cargando CA certificate: %v", err)
+		log.Fatalf("Error cargando el bundle de CAs: %v", err)
 	}
 
 	caCertPool := x509.NewCertPool()
 	if !caCertPool.AppendCertsFromPEM(caCert) {
-		log.Fatal("Error agregando CA certificate al pool")
+		log.Fatal("Error agregando el bundle de CAs al pool de Go")
 	}
 
 	// Cargar certificado y clave del servidor
