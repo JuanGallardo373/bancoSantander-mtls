@@ -50,7 +50,7 @@ var (
 	logMutex          sync.Mutex
 	transferIDCounter int
 	ocspClient        *http.Client
-	ocspServerURL     string = "http://localhost:8888" // Servidor OCSP local
+	ocspServerURL     string = "http://localhost:2560" // Servidor OCSP local
 	issuerCert        *x509.Certificate
 )
 
