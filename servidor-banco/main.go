@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -177,7 +178,7 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 			// CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA
 			clientIP := extractClientIP(c.Conn.RemoteAddr().String())
             // 🔴 FILTRO DE CONTINGENCIA: Si el error es un reset por descarte del cliente, lo ignoramos de anomalies.jsonl
-            if strings.Contains(errStr, "connection reset by peer") || strings.Contains(errStr, "broken pipe") {
+            if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "broken pipe") {
                 log.Printf("⚠️ Socket TCP cerrado abruptamente por el cliente de estrés (s_time) | IP: %s", clientIP)
                 return 0, err
             }
@@ -224,15 +225,18 @@ func main() {
 
 	// Cargar certificado y clave del servidor
 	serverCert, err := tls.LoadX509KeyPair(
-		"./certs/santander-cert.pem",
-		"./certs/santander-key.pem",
+		"./certs/santander.crt",
+		"./certs/santander.key",
 	)
 	if err != nil {
 		log.Fatalf("Error cargando certificado del servidor: %v", err)
 	}
+	
 	intermediaBytes, err := os.ReadFile("../CAIntermediaBANELCO/banelco-inter.crt")
+	if err != nil {
+		log.Fatalf("Error cargando certificado intermedio: %v", err)
+	}
 
-    var block *pem.Block
     block, _ = pem.Decode(intermediaBytes)
 	if block == nil {
 		log.Fatal("Error decodificando certificado intermedio")
