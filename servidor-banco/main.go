@@ -212,7 +212,7 @@ func main() {
 	defer logFile.Close()
 
 	// Cargar certificados de cliente (CA)
-	caCert, err := os.ReadFile("../CAIntermediaCOELSA/bundle.crt")
+	caCert, err := os.ReadFile("../CAIntermediaBANELCO/bundle.crt")
 	if err != nil {
 		log.Fatalf("Error cargando el bundle de CAs: %v", err)
 	}
@@ -230,7 +230,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error cargando certificado del servidor: %v", err)
 	}
-	intermediaBytes, err := os.ReadFile("../CAIntermediaCOELSA/coelsa-inter.crt")
+	intermediaBytes, err := os.ReadFile("../CAIntermediaBANELCO/banelco-inter.crt")
 
     var block *pem.Block
     block, _ = pem.Decode(intermediaBytes)
