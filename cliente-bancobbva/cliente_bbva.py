@@ -91,8 +91,7 @@ def main():
     SERVER_URL = "https://localhost:8443"
     CERT_FILE = "./certs/bbva-cert.pem"
     KEY_FILE = "./certs/bbva-key.pem"
-    CA_FILE = "'../CAIntermediaBANELCO/bundle.crt'"
-    
+    CA_FILE = "'../CABancoCentral/bcra-raiz.pem'"      
     print("=" * 60)
     print("🏦 Cliente BBVA - mTLS Bank Transfer")
     print("=" * 60)

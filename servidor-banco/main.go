@@ -230,6 +230,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error cargando certificado del servidor: %v", err)
 	}
+	intermediaBytes, err := os.ReadFile("../CAIntermediaCOELSA/coelsa-inter.crt")
+
+    var block *pem.Block
+    block, _ = pem.Decode(intermediaBytes)
+	if block == nil {
+		log.Fatal("Error decodificando certificado intermedio")
+	}
+    serverCert.Certificate = append(serverCert.Certificate, block.Bytes)
 
 	// Configurar TLS 1.3 con mTLS obligatorio
 	tlsConfig := &tls.Config{
