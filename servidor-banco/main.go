@@ -3,10 +3,10 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-        "golang.org/x/crypto/ocsp"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"golang.org/x/crypto/ocsp"
 	"io"
 	"log"
 	"net"
@@ -29,10 +29,10 @@ type TransferRequest struct {
 
 // TransferResponse representa la respuesta de una transferencia
 type TransferResponse struct {
-	Status      string    `json:"status"`
-	TransferID  string    `json:"transfer_id"`
-	Message     string    `json:"message"`
-	Timestamp   time.Time `json:"timestamp"`
+	Status     string    `json:"status"`
+	TransferID string    `json:"transfer_id"`
+	Message    string    `json:"message"`
+	Timestamp  time.Time `json:"timestamp"`
 }
 
 // AnomalyLog registra anomalías detectadas en el handshake mTLS
@@ -49,11 +49,11 @@ var (
 	logFile           *os.File
 	logMutex          sync.Mutex
 	transferIDCounter int
-        totalHandshakes   int64
+	totalHandshakes   int64
 	totalLatencyMs    int64
 	metricsMutex      sync.Mutex
 	ocspClient        *http.Client
-	ocspServerURL     string = "http://localhost:2560" 
+	ocspServerURL     string = "http://localhost:2560"
 	issuerCert        *x509.Certificate
 )
 
@@ -142,7 +142,7 @@ func verifyOCSPLocal(cert *x509.Certificate) error {
 	// Verificar estado del certificado
 	switch ocspResp.Status {
 	case ocsp.Good:
-//		log.Printf("✅ Certificado VÁLIDO según OCSP | NextUpdate: %v", ocspResp.NextUpdate)
+		//		log.Printf("✅ Certificado VÁLIDO según OCSP | NextUpdate: %v", ocspResp.NextUpdate)
 		return nil
 	case ocsp.Revoked:
 		errorMsg := fmt.Sprintf("CERTIFICADO REVOCADO desde %v por razón: %s", ocspResp.RevokedAt, ocspResp.RevocationReason)
@@ -161,7 +161,7 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	// Parsear el body de la solicitud
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -238,46 +238,45 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 	if !c.handshakeDone {
 		// ⏱️ CAPTURA INICIAL
 		startHandshake := time.Now()
-                err := c.Conn.Handshake()
+		err := c.Conn.Handshake()
 		c.handshakeDone = true
 
 		// ⏱️ CÁLCULO FINAL: Handshake finalizado (con éxito o error)
 		latency := time.Since(startHandshake).Milliseconds()
-		
 
-                // Imprimir reporte resumido cada 100 handshakes para no saturar la consola
-                if totalHandshakes%100 == 0 {
-                         mediaActual := float64(totalLatencyMs) / float64(totalHandshakes)
-                         log.Printf("\n📊 [MÉTRICAS] Handshakes evaluados: %d | Latencia Media Actual: %.2f ms\n", totalHandshakes, mediaActual)
-                }
+		// Imprimir reporte resumido cada 100 handshakes para no saturar la consola
+		if totalHandshakes%100 == 0 {
+			mediaActual := float64(totalLatencyMs) / float64(totalHandshakes)
+			log.Printf("\n📊 [MÉTRICAS] Handshakes evaluados: %d | Latencia Media Actual: %.2f ms\n", totalHandshakes, mediaActual)
+		}
 
 		if err != nil {
 			// CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA
-	 		clientIP := extractClientIP(c.Conn.RemoteAddr().String())
-                        // 🔴 FILTRO DE CONTINGENCIA: Si el error es un reset por descarte del cliente, lo ignoramos de anomalies.jsonl
-                        if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "broken pipe") {
-                                 metricsMutex.Lock()
-		                 totalHandshakes++
-	                         totalLatencyMs += latency
-				 metricsMutex.Unlock()
+			clientIP := extractClientIP(c.Conn.RemoteAddr().String())
+			// 🔴 FILTRO DE CONTINGENCIA: Si el error es un reset por descarte del cliente, lo ignoramos de anomalies.jsonl
+			if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "broken pipe") {
+				metricsMutex.Lock()
+				totalHandshakes++
+				totalLatencyMs += latency
+				metricsMutex.Unlock()
 
-                                 //log.Printf("⚠️ Socket TCP cerrado abruptamente por el cliente de estrés (s_time) | IP: %s", clientIP)
-                                 return 0, err
-                        }
-		        anomaly := AnomalyLog{
-			         EventType:      "MTLS_HANDSHAKE_FAILED",
-			         ClientIP:       clientIP,
-			         ClientName:     "unknown", // No sabemos quién es porque falló
-			         ErrorMessage:   err.Error(),
-			         HandshakeError: true,
-		        }
+				//log.Printf("⚠️ Socket TCP cerrado abruptamente por el cliente de estrés (s_time) | IP: %s", clientIP)
+				return 0, err
+			}
+			anomaly := AnomalyLog{
+				EventType:      "MTLS_HANDSHAKE_FAILED",
+				ClientIP:       clientIP,
+				ClientName:     "unknown", // No sabemos quién es porque falló
+				ErrorMessage:   err.Error(),
+				HandshakeError: true,
+			}
 
-		        logAnomaly(anomaly)
+			logAnomaly(anomaly)
 
-                        //log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s | Tiempo de procesamiento kernel: %d ms", err.Error(), clientIP, latencia)
-	         	return 0, err
-	        }
-                metricsMutex.Lock()
+			//log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s | Tiempo de procesamiento kernel: %d ms", err.Error(), clientIP, latencia)
+			return 0, err
+		}
+		metricsMutex.Lock()
 		totalHandshakes++
 		totalLatencyMs += latency
 		metricsMutex.Unlock()
@@ -289,8 +288,8 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 			clientName = "unknown"
 		}
 		log.Printf("🔐 🟢 HANDSHAKE mTLS EXITOSO | Cliente: %s | Latencia de negociación: %d ms", clientName, latency)
-	        */
-        }
+		*/
+	}
 	return c.Conn.Read(b)
 }
 
