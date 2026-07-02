@@ -24,11 +24,7 @@ Este proyecto implementa:
    - Notificaciones de seguridad al administrador
    - Clasificación de riesgos
 
-## 🏗️ Estructura del Proyecto
-
-
 ## 🚀 Requisitos Previos
-
 ### Sistema
 - **Go** 1.19+
      sudo apt install golang-go
@@ -38,16 +34,45 @@ Este proyecto implementa:
 - **Ollama** (para análisis con LLM)
      Linux: curl -fsSL https://ollama.com/install.sh | sh
      Windows: https://ollama.com/download/windows
+- **OCSP** (para revocacion de certs)
+     go get golang.org/x/crypto/ocsp
+
 
 ### Instalación
 # Clonar repositorio
 git clone https://github.com/JuanGallardo373/bancoSantander-mtls.git
 cd bancoSantander-mtls
 
+## PASOS DE EJECUCION
+1. CABancoCentral/
+	bash generate-CARaiz.sh
+2. cd CAIntermediaBANELCO/
+	bash generate-CABanelco.sh
+3. cd CABancoCentral/
+	bash firmarCAIntermedia.sh
+4. cd CAIntermediaBANELCO/
+	bash createBundle.sh
+5. cd cliente-mercadopago/ cliente-BBVA/
+	bash generate-cert.sh
+6. cd CAIntermediaBANELCO/
+	bash firmarCertificados.sh
+=============================
+# OCSP
+# Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
+# Comentar si no se utiliza OCSP
+CAIntermediaBANELCO/
+bash oscpKeyCSR.sh
+bash signCertOCSP.sh
+openssl ocsp -port 2560 -index index.txt -CA banelco-inter.crt -rkey ocsp.key -rsigner ocsp.crt
+==============================
+7. go run main.go
+	llm_analyzer.py
+	clientes.py
+
 # Instalar y descargar modelo Ollama
 ollama pull llama3
 
-🚀 Cómo Usarlo:
+🚀 Cómo Usarlo (Linux):
 Terminal 1 - Ollama:
 ollama serve
 
@@ -66,7 +91,6 @@ python3 atacante.py
 
 🛡️ Características de Seguridad
 ✅ mTLS Obligatorio
-
 Requiere certificado cliente válido
 Valida fecha de expiración
 Verifica firma de CA
@@ -85,19 +109,6 @@ Alertas contextualizadas
 Alertas para administrador en tiempo real
 Recomendaciones de acción
 Severidad clasificada
-🔧 Troubleshooting
-Error: "Error cargando CA certificate"
-Code
-Solución: Verificar que ca-cert.pem existe en servidor-banco/certs/
-Error: "SSL: CERTIFICATE_VERIFY_FAILED"
-Code
-Solución: Asegurar que el certificado cliente es válido y está firmado por la CA
-Error: "No se puede conectar a Ollama"
-Code
-Solución: 
-1. Instalar Ollama
-2. Ejecutar: ollama serve
-3. Descargar modelo: ollama pull llama2
 
 📝 Notas de Desarrollo
 Agregar nuevo cliente
