@@ -56,7 +56,7 @@ cd bancoSantander-mtls
 	bash generate-cert.sh
 6. cd CAIntermediaBANELCO/
 	bash firmarCertificados.sh
-=============================
+
 **OCSP**
 -> Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
 -> Comentar si no se utiliza OCSP
@@ -64,8 +64,8 @@ CAIntermediaBANELCO/
 bash oscpKeyCSR.sh
 bash signCertOCSP.sh
 openssl ocsp -port 2560 -index index.txt -CA banelco-inter.crt -rkey ocsp.key -rsigner ocsp.crt
-==============================
-7. go run main.go
+
+8. go run main.go
 	llm_analyzer.py
 	clientes.py
 
