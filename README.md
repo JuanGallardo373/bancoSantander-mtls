@@ -61,10 +61,10 @@ cd bancoSantander-mtls
 * Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
 * Comentar si no se utiliza OCSP
 
-CAIntermediaBANELCO/
-bash oscpKeyCSR.sh
-bash signCertOCSP.sh
-openssl ocsp -port 2560 -index index.txt -CA banelco-inter.crt -rkey ocsp.key -rsigner ocsp.crt
+cd CAIntermediaBANELCO/
+	bash oscpKeyCSR.sh
+	bash signCertOCSP.sh
+	openssl ocsp -port 2560 -index index.txt -CA banelco-inter.crt -rkey ocsp.key -rsigner ocsp.crt
 
 8. go run main.go
 	llm_analyzer.py
