@@ -60,6 +60,7 @@ cd bancoSantander-mtls
 **OCSP**
 * Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
 * Comentar si no se utiliza OCSP
+
 CAIntermediaBANELCO/
 bash oscpKeyCSR.sh
 bash signCertOCSP.sh
