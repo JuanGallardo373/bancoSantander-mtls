@@ -57,9 +57,9 @@ cd bancoSantander-mtls
 6. cd CAIntermediaBANELCO/
 	bash firmarCertificados.sh
 =============================
-# OCSP
-# Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
-# Comentar si no se utiliza OCSP
+**OCSP**
+-> Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
+-> Comentar si no se utiliza OCSP
 CAIntermediaBANELCO/
 bash oscpKeyCSR.sh
 bash signCertOCSP.sh
