@@ -83,7 +83,16 @@ Esto generará:
 - `santander.key` y `santander.crt` (Servidor Santander)
 - Certificados individuales para cada cliente
 `
+OCSP
 
+*Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
+*Comentar si no se utiliza OCSP
+```bash
+cd CAIntermediaBANELCO/
+bash oscpKeyCSR.sh
+bash signCertOCSP.sh
+openssl ocsp -port 2560 -index index.txt -CA banelco-inter.crt -rkey ocsp.key -rsigner ocsp.crt
+```
 ### 3. Iniciar el Servidor
 
 ```bash
