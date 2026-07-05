@@ -82,10 +82,10 @@ Esto generará:
 - `banelco-inter.key` y `banelco-inter.crt` (Autoridad de Certificación Intermedia)
 - `santander.key` y `santander.crt` (Servidor Santander)
 - Certificados individuales para cada cliente
-`
-#OCSP
-Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
-Comentar si no se utiliza OCSP
+
+# OCSP
+* Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
+* Comentar si no se utiliza OCSP
 ```bash
 cd CAIntermediaBANELCO/
 bash oscpKeyCSR.sh
