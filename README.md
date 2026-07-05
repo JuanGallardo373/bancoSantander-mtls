@@ -5,132 +5,112 @@ Simulación de servidor bancario con comunicaciones **mTLS (Mutual TLS)** bidire
 
 ## 📋 Descripción del Proyecto
 
-Este proyecto implementa:
+Este proyecto simula un **servidor bancario (Santander)** que se comunica de forma segura con múltiples **fintech (clientes)**:
 
-1. **Servidor Go** - Banco Santander con mTLS obligatorio
-   - Endpoint `/transfer` para transferencias bancarias
-   - Endpoint `/health` para verificar estado
-   - Logging de anomalías en JSON
-   - Validación de certificados cliente
+- **Servidor**: Santander (Banco Virtual con Validación Bilateral)
+- **Clientes Legítimos**:
+  - Mercado Pago ✅
+  - BBVA ✅
+- **Cliente Atacante**: Sin certificado válido ❌
 
-2. **Clientes Python** - BBVA y Mercadopago
-   - Comunicación mTLS con certificados cliente propios
-   - Simulación de transferencias bancarias
-   - Logging de transacciones
+### Características Principales
 
-3. **Analizador de IA** - LLM local (Ollama)
-   - Análisis automático de logs de anomalías
-   - Detección de patrones de ataque
-   - Notificaciones de seguridad al administrador
-   - Clasificación de riesgos
+✨ **mTLS (Mutual TLS)**
+- Validación bidireccional de certificados
+- Servidor y clientes se autentican mutuamente
 
-## 🚀 Requisitos Previos
+🔐 **CA Raiz offline(BCRA)**
+- Autoridad de Certificación de CAs Intermedias
+- Certificados firmados y validables
+
+🔐 **CA Intermedia (Banelco)**
+- Autoridad de Certificación online
+- Certificados clientes firmados y validables
+
+📊 **Logging Estructurado**
+- Registro de todos los handshakes TLS
+- Formato JSONL para análisis
+- Captura de anomalías en tiempo real
+
+🤖 **Detección de Anomalías con LLM**
+- Integración con Ollama (LLM local)
+- Análisis automático de logs
+- Identificación de patrones sospechosos
+
 ### Sistema
 - **Go** 1.19+
-     sudo apt install golang-go
 - **Python** 3.8+
-     sudo apt install -y python3 python3-pip python3-dev python3-venv libssl-dev libffi-dev && \
-     pip3 install --upgrade pip
 - **Ollama** (para análisis con LLM)
      Linux: curl -fsSL https://ollama.com/install.sh | sh
      Windows: https://ollama.com/download/windows
-- **OCSP** (para revocacion de certs)
-     go get golang.org/x/crypto/ocsp
+- **Ubuntu/Linux** (recomendado)
 
+## 🚀 Inicio Rápido
 
-### Instalación
-# Clonar repositorio
+### 1. Clonar el Repositorio
+
+```bash
 git clone https://github.com/JuanGallardo373/bancoSantander-mtls.git
-cd bancoSantander-mtls
+cd bancoSantader-mtls
+```
+PKI de dos niveles con OCSP
+```bash
+git checkout main
+```
+PKI de un nivel sin OCSP
+```bash
+git checkout PKI-un-nivel
+```
 
-## PASOS DE EJECUCION
-1. CABancoCentral/
-	bash generate-CARaiz.sh
-2. cd CAIntermediaBANELCO/
-	bash generate-CABanelco.sh
-3. cd CABancoCentral/
-	bash firmarCAIntermedia.sh
-4. cd CAIntermediaBANELCO/
-	bash createBundle.sh
-5. cd cliente-mercadopago/ cliente-BBVA/
-	bash generate-cert.sh
-6. cd CAIntermediaBANELCO/
-	bash firmarCertificados.sh
+### 2. Generar Certificados
 
-**OCSP**
-* Descomentar function VerifyPeerCertificate en tls.Config en el archivo main.go
-* Comentar si no se utiliza OCSP
+```bash
+cd certs
+bash CABancoCentral/generate-CARaiz.sh
+bash CAIntermediaBANELCO/generate-CABanelco.sh
+bash CABancoCentral/firmarCAIntermedia.sh
 
-cd CAIntermediaBANELCO/
-	bash oscpKeyCSR.sh
-	bash signCertOCSP.sh
-	openssl ocsp -port 2560 -index index.txt -CA banelco-inter.crt -rkey ocsp.key -rsigner ocsp.crt
+bash CAIntermediaBANELCO/createBundle.sh
 
-8. go run main.go
-	llm_analyzer.py
-	clientes.py
+bash cliente-mercadopago/bash generate-cert.sh
+bash cliente-BBVA/generate-cert.sh
+bash CAIntermediaBANELCO/firmarCertificados.sh
+```
 
-# Instalar y descargar modelo Ollama
-ollama pull llama3
+Esto generará:
+- `bcra-raiz.key` y `bcra-raiz.crt` (Autoridad de Certificación Raiz)
+- `banelco-inter.key` y `banelco-inter.crt` (Autoridad de Certificación Intermedia)
+- `santander.key` y `santander.crt` (Servidor Santander)
+- Certificados individuales para cada cliente
+`
 
-🚀 Cómo Usarlo (Linux):
-Terminal 1 - Ollama:
-ollama serve
+### 3. Iniciar el Servidor
 
-Terminal 2 - Servidor:
-cd servidor-banco
-go run main.go
+```bash
+go run servidor-banco/main.go
+```
 
-Terminal 3 - Analizador (CONTINUO):
-cd analista-ia
-python3 llm_analyzer.py --interval 10  # Verifica cada 10 seg
-python3 llm_analyzer.py --ollama-url http://X.X.X.X:11434  #Modificar URL
+El servidor escuchará en `localhost:8443` con mTLS habilitado.
 
-Terminal 4 - Cliente/Atacante:
-cd cliente-atacante
-python3 atacante.py
+### 4. Analizar Logs con LLM (Descargar Ollama y llama3)
 
-🛡️ Características de Seguridad
-✅ mTLS Obligatorio
-Requiere certificado cliente válido
-Valida fecha de expiración
-Verifica firma de CA
-✅ Logging Detallado
+```bash
+python analista-ia/llm-analyzer.py --ollama-url http://x.x.x.x:11434 #Modificar URL
+```
 
-Todos los errores de handshake registrados
-Formato JSON para parsing automático
-Timestamps precisos
-✅ Análisis Inteligente
+### 5. Ejecutar Clientes (en otra terminal)
 
-LLM detecta patrones de ataque
-Clasificación automática de riesgos
-Alertas contextualizadas
-✅ Notificaciones
+**Cliente Legítimo (Mercado Pago y BBVA):**
+```bash
+python3 cliente-mercadopago/cliente-mercadopago.py
+python3 cliente-bancobbva/cliente-bbva.py
+```
 
-Alertas para administrador en tiempo real
-Recomendaciones de acción
-Severidad clasificada
-
-📝 Notas de Desarrollo
-Agregar nuevo cliente
-Generar certificado con autoridad CA
-Crear script Python en cliente-{banco}/
-Usar mismo patrón de MTLSAdapter
-Actualizar documentación
-Modificar endpoint
-Editar función handler en main.go
-Agregar validaciones necesarias
-Loguear anomalías detectadas
-Recompilar: go run main.go
-Personalizar análisis LLM
-Modificar prompt en analyze_with_llm()
-Ajustar temperatura (0-1) para variabilidad
-Cambiar modelo en parámetro --model
-Cambiar URL de Ollama en parámetro --ollama-url http://x.x.x.x:14434
-Observar logs generados por el LLM con los comandos:
-   *Observar en una segunda terminal en vivo: tail -f ../logs/anomalies.jsonl | jq
-   cat ../logs/analysis.jsonl | jq -r '.llm_analysis'
-   cat ../logs/admin_alerts.log
+**Cliente Atacante:**
+```bash
+python3 cliente-atacante/cliente-autofirmado.py
+python3 cliente-atacante/cliente-mismatch.py
+```
 
 📚 Referencias
 Go TLS Documentation
