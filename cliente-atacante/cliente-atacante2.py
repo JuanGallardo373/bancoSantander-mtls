@@ -95,8 +95,8 @@ def main():
     
     # Configuración del atacante
     SERVER_URL = "https://localhost:8443"
-    ATTACKER_CERT = "./certs/atacante.crt"
-    ATTACKER_KEY = "./certs/atacante.key"
+    ATTACKER_CERT = "./certs/atacante-cert.pem"
+    ATTACKER_KEY = "./certs/atacante-key.pem"
     
     print("🎯 Objetivo: Banco Santander")
     print(f"📍 Servidor: {SERVER_URL}")

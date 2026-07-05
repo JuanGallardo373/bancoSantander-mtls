@@ -87,9 +87,9 @@ def send_transfer(session, server_url, transfer_data, timeout=10):
 def main():
     # Configuración del ataque
     SERVER_URL = "https://localhost:8443"
-    CERT_FILE = "../cliente-mercadopago/certs/mpago.crt" # Certificado robado válido
-    KEY_FILE = "./certs/atacante.key"                     # Clave privada falsa/propia
-    CA_FILE = "../CABancoCentral/bcra-raiz.crt"
+    CERT_FILE = "../cliente-mercadopago/certs/mpago-cert.pem" # Certificado robado válido
+    KEY_FILE = "./certs/atacante-key.pem"                     # Clave privada falsa/propia
+    CA_FILE = "../CABancoCentral/cacert.pem"
     
     print("=" * 60)
     print("🎯 Cliente Atacante - Robo Parcial de Identidad (Mismatch)")
