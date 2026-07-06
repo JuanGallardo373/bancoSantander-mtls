@@ -15,18 +15,26 @@ ENV/
 *.swo
 
 # Certificates and keys (SECURITY)
-*/certs/*.pem
-CABancoCentral/private/*.pem
-CABancoCentral/*.pem
-!certs/README_CERTS.md
+*.csr
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+private/ 
+generated/
 
 #Certificates database and serial number
-CABancoCentral/index.txt*
-CABancoCentral/serial*
+*index.txt
+*serial
+*/index.txt
+*/serial
+*/index.txt*
+*/serial*
 
-# Logs
-logs/*.log
-logs/*.jsonl
+# Logs and Data
+logs/*
+data/*
 
 # Environment
 .env

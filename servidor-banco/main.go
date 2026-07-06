@@ -224,8 +224,8 @@ func main() {
 
 	// Cargar certificado y clave del servidor
 	serverCert, err := tls.LoadX509KeyPair(
-		"./certs/santander-cert.pem",
-		"./certs/santander-key.pem",
+		"./certs/santander.crt",
+		"./certs/santander.key",
 	)
 	if err != nil {
 		log.Fatalf("Error cargando certificado del servidor: %v", err)

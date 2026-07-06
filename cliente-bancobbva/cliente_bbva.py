@@ -89,8 +89,8 @@ def log_transaction(timestamp, status, transfer_id, amount, response_code):
 def main():
     # Configuración
     SERVER_URL = "https://localhost:8443"
-    CERT_FILE = "./certs/bbva-cert.pem"
-    KEY_FILE = "./certs/bbva-key.pem"
+    CERT_FILE = "./certs/bbva.crt"
+    KEY_FILE = "./certs/bbva.key"
     CA_FILE = "../CABancoCentral/cacert.pem"
     
     print("=" * 60)
