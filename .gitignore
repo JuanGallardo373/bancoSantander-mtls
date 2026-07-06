@@ -34,7 +34,6 @@ generated/
 
 # Logs and Data
 logs/*
-data/*
 
 # Environment
 .env
