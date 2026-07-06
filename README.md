@@ -1,7 +1,7 @@
 
-# 🏦 Banco Santander mTLS - Laboratorio de Seguridad
+# 🏦 Laboratorio con infraestructura PKI jerárquica, validación OCSP y análisis local de anomalías para entornos financieros mTLS
 
-Simulación de servidor bancario con comunicaciones **mTLS (Mutual TLS)** bidireccionales, detección de anomalías en handshakes y análisis de seguridad con **LLM local (Ollama)**.
+Simulación de servidor bancario con comunicaciones **mTLS (Mutual TLS)** con PKI jerarquica y validación OCSP, detección de anomalías en handshakes y análisis de seguridad con **LLM local (Ollama)**.
 
 ## 📋 Descripción del Proyecto
 
@@ -55,7 +55,7 @@ Este proyecto simula un **servidor bancario (Santander)** que se comunica de for
 
 ```bash
 git clone https://github.com/JuanGallardo373/bancoSantander-mtls.git
-cd bancoSantader-mtls
+cd bancoSantander-mtls
 ```
 PKI de dos niveles con OCSP
 ```bash
