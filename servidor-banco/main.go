@@ -27,10 +27,10 @@ type TransferRequest struct {
 
 // TransferResponse representa la respuesta de una transferencia
 type TransferResponse struct {
-	Status      string    `json:"status"`
-	TransferID  string    `json:"transfer_id"`
-	Message     string    `json:"message"`
-	Timestamp   time.Time `json:"timestamp"`
+	Status     string    `json:"status"`
+	TransferID string    `json:"transfer_id"`
+	Message    string    `json:"message"`
+	Timestamp  time.Time `json:"timestamp"`
 }
 
 // AnomalyLog registra anomalías detectadas en el handshake mTLS
@@ -89,7 +89,7 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	// Parsear el body de la solicitud
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -166,21 +166,21 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 	if !c.handshakeDone {
 		// ⏱️ CAPTURA INICIAL
 		startHandshake := time.Now()
-		
+
 		err := c.Conn.Handshake()
 		c.handshakeDone = true
 
 		// ⏱️ CÁLCULO FINAL: Handshake finalizado (con éxito o error)
 		latency := time.Since(startHandshake).Milliseconds()
-		
+
 		if err != nil {
 			// CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA
 			clientIP := extractClientIP(c.Conn.RemoteAddr().String())
-            // 🔴 FILTRO DE CONTINGENCIA: Si el error es un reset por descarte del cliente, lo ignoramos de anomalies.jsonl
-            if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "broken pipe") {
-                log.Printf("⚠️ Socket TCP cerrado abruptamente por el cliente de estrés (s_time) | IP: %s", clientIP)
-                return 0, err
-            }
+			// 🔴 FILTRO DE CONTINGENCIA: Si el error es un reset por descarte del cliente, lo ignoramos de anomalies.jsonl
+			if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "broken pipe") {
+				log.Printf("⚠️ Socket TCP cerrado abruptamente por el cliente de estrés (s_time) | IP: %s", clientIP)
+				return 0, err
+			}
 			anomaly := AnomalyLog{
 				EventType:      "MTLS_HANDSHAKE_FAILED",
 				ClientIP:       clientIP,
@@ -190,7 +190,7 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 			}
 
 			logAnomaly(anomaly)
-            log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s | Tiempo de procesamiento kernel: %d ms", err.Error(), clientIP, latency)
+			log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s | Tiempo de procesamiento kernel: %d ms", err.Error(), clientIP, latency)
 			// Retornamos el error al servidor HTTP para que cierre esta Goroutine,
 			// pero el servidor principal en :8443 sigue intacto.
 			return 0, err

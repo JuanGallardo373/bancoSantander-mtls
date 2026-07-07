@@ -14,6 +14,9 @@ ENV/
 *.swp
 *.swo
 
+# Go build output
+/servidor-banco/bancoSantander-mtls
+
 # Certificates and keys (SECURITY)
 *.csr
 *.crt
@@ -25,10 +28,8 @@ private/
 generated/
 
 #Certificates database and serial number
-*index.txt
-*serial
-*/index.txt
-*/serial
+**/index.txt
+**/serial
 */index.txt*
 */serial*
 
