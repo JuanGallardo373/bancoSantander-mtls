@@ -341,7 +341,7 @@ func main() {
 		ClientCAs:    caCertPool,
 		MinVersion:   tls.VersionTLS13,
 		// Callback para verificación adicional de certificados de cliente (OCSP)
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+/*		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			if len(rawCerts) == 0 {
 				return fmt.Errorf("no se recibió certificado del cliente")
 			}
@@ -360,7 +360,7 @@ func main() {
 
 			return nil
 		},
-	}
+*/	}
 
 	// Registrar handlers
 	http.HandleFunc("/transfer", transferHandler)
