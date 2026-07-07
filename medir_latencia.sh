@@ -93,7 +93,7 @@ run_benchmark() {
             -connect localhost:8443 \
             -cert cliente-bancobbva/certs/bbva.crt \
             -key cliente-bancobbva/certs/bbva.key \
-            -CAfile CAIntermediaBANELCO/bundle.crt \
+            -CAfile CABancoCentral/cacert.pem \
             -time $test_duration \
             -new \
             -tls1_3 2>&1)
@@ -213,6 +213,7 @@ echo ""
 # ============================================================
 
 timestamp=$(date +%Y%m%d_%H%M%S)
+mkdir -p data
 report_file="data/pki_comparison_results_${timestamp}.md"
 
 {
