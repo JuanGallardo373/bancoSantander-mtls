@@ -160,9 +160,9 @@ run_benchmark() {
 # ============================================================
 
 echo ""
-echo "=========================================================="
-echo "BENCHMARK OCSP - OpenSSL s_time (10 corridas de 3s)"
-echo "=========================================================="
+echo "=============================================================="
+echo "BENCHMARK OCSP PKI DOS NIVELES- OpenSSL s_time (10 corridas)"
+echo "=============================================================="
 echo ""
 echo "Asegúrate que:"
 echo "   1. El servidor esta corriendo: go run main.go"
@@ -292,7 +292,7 @@ timestamp=$(date +%Y%m%d_%H%M%S)
 report_file="data/pki_comparison_results_${timestamp}.md"
 
 {
-    echo "# Reporte Benchmark OCSP"
+    echo "# Reporte Benchmark OCSP en PKI de 2 niveles"
     echo ""
     echo "**Fecha:** $(date '+%d/%m/%Y %H:%M:%S')"
     echo ""

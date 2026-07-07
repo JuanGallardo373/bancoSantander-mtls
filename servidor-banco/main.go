@@ -49,8 +49,6 @@ var (
 	logFile           *os.File
 	logMutex          sync.Mutex
 	transferIDCounter int
-	totalHandshakes   int64
-	totalLatencyMs    int64
 	metricsMutex      sync.Mutex
 	ocspClient        *http.Client
 	ocspServerURL     string = "http://localhost:2560"
@@ -112,7 +110,7 @@ func verifyOCSPLocal(cert *x509.Certificate) error {
 	}
 
 	// Enviar solicitud al servidor OCSP local
-	//log.Printf("🔍 Verificando certificado con servidor OCSP local: %s", ocspServerURL)
+	//log.Printf("Verificando certificado con servidor OCSP local: %s", ocspServerURL)
 
 	resp, err := ocspClient.Post(ocspServerURL, "application/ocsp-request", strings.NewReader(string(ocspReq)))
 	if err != nil {
@@ -142,7 +140,7 @@ func verifyOCSPLocal(cert *x509.Certificate) error {
 	// Verificar estado del certificado
 	switch ocspResp.Status {
 	case ocsp.Good:
-		//		log.Printf("✅ Certificado VÁLIDO según OCSP | NextUpdate: %v", ocspResp.NextUpdate)
+		log.Printf("✅ Certificado VÁLIDO según OCSP | NextUpdate: %v", ocspResp.NextUpdate)
 		return nil
 	case ocsp.Revoked:
 		errorMsg := fmt.Sprintf("CERTIFICADO REVOCADO desde %v por razón: %s", ocspResp.RevokedAt, ocspResp.RevocationReason)
@@ -244,22 +242,11 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 		// ⏱️ CÁLCULO FINAL: Handshake finalizado (con éxito o error)
 		latency := time.Since(startHandshake).Milliseconds()
 
-		// Imprimir reporte resumido cada 100 handshakes para no saturar la consola
-		if totalHandshakes%100 == 0 {
-			mediaActual := float64(totalLatencyMs) / float64(totalHandshakes)
-			log.Printf("\n📊 [MÉTRICAS] Handshakes evaluados: %d | Latencia Media Actual: %.2f ms\n", totalHandshakes, mediaActual)
-		}
-
 		if err != nil {
 			// CAPTURAMOS LA ANOMALÍA EXACTA PARA LA IA
 			clientIP := extractClientIP(c.Conn.RemoteAddr().String())
 			// 🔴 FILTRO DE CONTINGENCIA: Si el error es un reset por descarte del cliente, lo ignoramos de anomalies.jsonl
 			if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "broken pipe") {
-				metricsMutex.Lock()
-				totalHandshakes++
-				totalLatencyMs += latency
-				metricsMutex.Unlock()
-
 				//log.Printf("⚠️ Socket TCP cerrado abruptamente por el cliente de estrés (s_time) | IP: %s", clientIP)
 				return 0, err
 			}
@@ -273,22 +260,17 @@ func (c *TLSHandshakeInterceptor) Read(b []byte) (int, error) {
 
 			logAnomaly(anomaly)
 
-			//log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s | Tiempo de procesamiento kernel: %d ms", err.Error(), clientIP, latencia)
+			log.Printf("🔐 ❌ ERROR HANDSHAKE mTLS: %s | IP: %s | Tiempo de procesamiento kernel: %d ms", err.Error(), clientIP, latency)
 			return 0, err
 		}
-		metricsMutex.Lock()
-		totalHandshakes++
-		totalLatencyMs += latency
-		metricsMutex.Unlock()
 
-		/*var clientName string
+		var clientName string
 		if len(c.Conn.ConnectionState().PeerCertificates) > 0 {
 			clientName = c.Conn.ConnectionState().PeerCertificates[0].Subject.CommonName
 		} else {
 			clientName = "unknown"
 		}
 		log.Printf("🔐 🟢 HANDSHAKE mTLS EXITOSO | Cliente: %s | Latencia de negociación: %d ms", clientName, latency)
-		*/
 	}
 	return c.Conn.Read(b)
 }
@@ -341,7 +323,7 @@ func main() {
 		ClientCAs:    caCertPool,
 		MinVersion:   tls.VersionTLS13,
 		// Callback para verificación adicional de certificados de cliente (OCSP)
-/*		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			if len(rawCerts) == 0 {
 				return fmt.Errorf("no se recibió certificado del cliente")
 			}
@@ -353,14 +335,14 @@ func main() {
 			}
 
 			// Verificar OCSP del certificado del cliente con servidor local
-			//log.Printf("🔐 Verificando OCSP para cliente: %s", clientCert.Subject.CommonName)
+			log.Printf("🔐 Verificando OCSP para cliente: %s", clientCert.Subject.CommonName)
 			if err := verifyOCSPLocal(clientCert); err != nil {
 				return err
 			}
 
 			return nil
 		},
-*/	}
+	}
 
 	// Registrar handlers
 	http.HandleFunc("/transfer", transferHandler)
